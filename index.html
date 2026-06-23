@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rube Goldberg Lab (Planck.js)</title>
+<style>
+  :root{--bg:#FBF6EC;--panel:#FFFFFF;--ink:#2E2A22;--muted:#7C7468;--line:#E6DFD0;--accent:#1F4E8C;--radius:14px;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  #app{display:flex;height:100vh;width:100%;overflow:hidden;}
+
+  /* ---- Tabbed sidebar (Mock C) ---- */
+  #sidebar{width:248px;flex:0 0 248px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;}
+  #tabs{display:flex;gap:6px;padding:12px 14px;background:#F7F2E8;border-bottom:1px solid var(--line);}
+  .tab{flex:1;font-family:inherit;font-size:12.5px;color:var(--muted);background:transparent;border:none;padding:8px 6px;border-radius:9px;cursor:pointer;transition:background .15s,color .15s;}
+  .tab:hover{background:#efe8da;color:var(--ink);}
+  .tab.active{background:var(--accent);color:#fff;}
+  .tabpane{flex:1;overflow-y:auto;padding:14px;display:none;}
+  .tabpane.active{display:block;}
+  .sectionlabel{font-size:10px;letter-spacing:.6px;color:#a99f8c;margin:4px 2px 10px;font-weight:bold;}
+  /* collapsible groups */
+  .group{margin-bottom:10px;}
+  .grouphead{width:100%;display:flex;align-items:center;gap:12px;font-family:inherit;font-size:13px;font-weight:bold;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+  .grouphead:hover{border-color:var(--accent);box-shadow:0 3px 10px #0000000d;}
+  .grouphead .gico{flex:0 0 auto;width:40px;height:30px;}
+  .grouphead .gtitle{flex:1;text-align:left;}
+  .grouphead .chev{font-size:16px;color:#a99f8c;transition:transform .18s;display:inline-block;transform:rotate(90deg);}
+  .group:not(.open) .chev{transform:rotate(0deg);}
+  .groupbody{overflow:hidden;padding-top:10px;}
+  .group:not(.open) .groupbody{display:none;}
+  /* parts as wide list rows */
+  .tool{display:flex;align-items:center;gap:14px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;padding:12px 14px;margin-bottom:12px;cursor:grab;user-select:none;transition:border-color .15s,transform .05s,box-shadow .15s;}
+  .tool:hover{border-color:var(--accent);box-shadow:0 3px 10px #0000000d;}
+  .tool:active{cursor:grabbing;transform:scale(.98);}
+  .tool svg{flex:0 0 auto;}
+  .tool .label{font-size:14px;color:var(--ink);}
+  .comingsoon{border:1px dashed #e4d9c4;border-radius:var(--radius);background:#FAF6EC;color:#c0b6a2;font-size:12.5px;text-align:center;padding:14px;}
+  .settingrow{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--ink);padding:10px 2px;border-bottom:1px solid #f0eadd;}
+  .settingrow:last-child{border-bottom:none;}
+  .settingrow .muted{color:var(--muted);font-size:11.5px;}
+  .badge{display:inline-block;font-size:11px;color:var(--accent);border:1px solid var(--accent);border-radius:20px;padding:2px 10px;margin-top:10px;}
+
+  #stageWrap{flex:1;display:flex;flex-direction:column;min-width:0;}
+  #toolbar{height:56px;flex:0 0 56px;display:flex;align-items:center;gap:8px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--line);}
+  #toolbar .sp{flex:1;}
+  #toolbar .divider{width:1px;height:30px;background:var(--line);margin:0 6px;}
+  button.tb{font-family:inherit;font-size:13px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;border-radius:10px;cursor:pointer;transition:background .15s,border-color .15s,opacity .15s;display:inline-flex;align-items:center;gap:6px;}
+  button.tb:hover{background:#F4EFE4;border-color:var(--accent);}
+  button.tb.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  button.tb.primary:hover{background:#19406f;}
+  button.tb.iconbtn{width:38px;height:38px;padding:0;justify-content:center;}
+  button.tb.iconbtn svg{width:18px;height:18px;}
+  button.tb:disabled{opacity:.38;cursor:default;background:#fff;border-color:var(--line);}
+  button.tb:disabled:hover{background:#fff;border-color:var(--line);}
+  #stage{flex:1;position:relative;overflow:hidden;}
+  #world{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  #submenu{position:absolute;z-index:40;width:212px;background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 26px #2e2a2222;padding:12px;display:none;}
+  #submenu h3{margin:0 0 10px;font-size:14px;}
+  #submenu .row{display:flex;align-items:center;gap:8px;margin:9px 0;font-size:12px;color:var(--muted);}
+  #submenu .row label{flex:0 0 54px;}
+  #submenu input[type=range]{flex:1;}
+  #submenu .val{flex:0 0 46px;text-align:right;font-size:12px;color:var(--ink);font-weight:bold;}
+  #submenu .btns{display:flex;gap:8px;margin-top:10px;}
+  #submenu .iconbar{display:flex;gap:8px;margin-top:12px;}
+  #submenu .iconbtn{width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;cursor:pointer;transition:background .15s,border-color .15s,color .15s;}
+  #submenu .iconbtn:hover{background:#F4EFE4;border-color:var(--accent);color:var(--accent);}
+  #submenu .iconbtn.del:hover{border-color:#b1372f;background:#fbeceb;color:#b1372f;}
+  #submenu .btns button{flex:1;font-family:inherit;font-size:12px;border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px;cursor:pointer;}
+  #submenu .btns button:hover{background:#F4EFE4;border-color:var(--accent);}
+  #submenu .btns button.del{color:#b1372f;}
+  #submenu .btns button.del:hover{border-color:#b1372f;background:#fbeceb;}
+  #emptyHint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#bcae90;font-size:15px;text-align:center;pointer-events:none;}
+  #runNote{position:absolute;top:16px;left:50%;transform:translate(-50%,-8px);z-index:60;background:#2E2A22;color:#fff;font-size:13px;padding:9px 16px;border-radius:20px;box-shadow:0 6px 20px #2e2a2233;pointer-events:none;opacity:0;transition:opacity .2s,transform .2s;white-space:nowrap;}
+  #runNote.show{opacity:1;transform:translate(-50%,0);}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div id="tabs">
+      <button class="tab active" data-tab="parts">Parts</button>
+      <button class="tab" data-tab="presets">Presets</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </div>
+
+    <div class="tabpane active" data-pane="parts">
+      <div class="group">
+        <button class="grouphead">
+          <svg class="gico" viewBox="0 0 60 40" aria-hidden="true">
+            <circle cx="30" cy="20" r="14" fill="#b8895a" stroke="#6f4a26" stroke-width="2.5"/>
+            <g stroke="#6f4a26" stroke-width="2"><line x1="30" y1="20" x2="30" y2="8"/><line x1="30" y1="20" x2="30" y2="32"/><line x1="30" y1="20" x2="20" y2="13"/><line x1="30" y1="20" x2="40" y2="13"/><line x1="30" y1="20" x2="20" y2="27"/><line x1="30" y1="20" x2="40" y2="27"/></g>
+            <circle cx="30" cy="20" r="3.5" fill="#6f4a26"/>
+          </svg>
+          <span class="gtitle">Wheel &amp; axle</span><span class="chev">&#8250;</span>
+        </button>
+        <div class="groupbody">
+          <div class="tool" draggable="true" data-kind="wagon">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <rect x="20" y="14" width="80" height="26" rx="6" fill="#C0533A"/>
+              <rect x="20" y="14" width="80" height="8" rx="4" fill="#d96a4f"/>
+              <circle cx="38" cy="48" r="11" fill="#3a3a3a"/><circle cx="38" cy="48" r="4" fill="#9a9a9a"/>
+              <circle cx="82" cy="48" r="11" fill="#3a3a3a"/><circle cx="82" cy="48" r="4" fill="#9a9a9a"/>
+            </svg>
+            <div class="label">Wagon</div>
+          </div>
+          <div class="tool" draggable="true" data-kind="cartwheel">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <circle cx="60" cy="32" r="22" fill="#b8895a" stroke="#6f4a26" stroke-width="3"/>
+              <g stroke="#6f4a26" stroke-width="2.4">
+                <line x1="60" y1="32" x2="60" y2="12"/><line x1="60" y1="32" x2="60" y2="52"/>
+                <line x1="60" y1="32" x2="44" y2="22"/><line x1="60" y1="32" x2="76" y2="22"/>
+                <line x1="60" y1="32" x2="44" y2="42"/><line x1="60" y1="32" x2="76" y2="42"/>
+              </g>
+              <circle cx="60" cy="32" r="5" fill="#6f4a26"/>
+            </svg>
+            <div class="label">Cartwheel</div>
+          </div>
+          <div class="tool" draggable="true" data-kind="tyre">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <circle cx="60" cy="32" r="22" fill="#2f2f33" stroke="#141417" stroke-width="3"/>
+              <circle cx="60" cy="32" r="9" fill="#4a4a50"/><circle cx="60" cy="32" r="3.4" fill="#9a9a9a"/>
+              <g stroke="#141417" stroke-width="1.6">
+                <line x1="60" y1="11" x2="60" y2="15"/><line x1="60" y1="49" x2="60" y2="53"/>
+                <line x1="39" y1="32" x2="43" y2="32"/><line x1="77" y1="32" x2="81" y2="32"/>
+                <line x1="46" y1="18" x2="48" y2="21"/><line x1="74" y1="18" x2="72" y2="21"/>
+                <line x1="46" y1="46" x2="48" y2="43"/><line x1="74" y1="46" x2="72" y2="43"/>
+              </g>
+            </svg>
+            <div class="label">Rubber tyre</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <button class="grouphead">
+          <svg class="gico" viewBox="0 0 60 40" aria-hidden="true">
+            <path d="M8,32 L52,32 L8,10 Z" fill="#C28E4B" stroke="#8A5E2E" stroke-width="2.5" stroke-linejoin="round"/>
+          </svg>
+          <span class="gtitle">Inclined plane</span><span class="chev">&#8250;</span>
+        </button>
+        <div class="groupbody">
+          <div class="tool" draggable="true" data-kind="incline">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <path d="M16,52 L104,52 L16,16 Z" fill="#C28E4B"/>
+              <path d="M16,52 L104,52 L16,16 Z" fill="none" stroke="#8A5E2E" stroke-width="3" stroke-linejoin="round"/>
+            </svg>
+            <div class="label">Ramp</div>
+          </div>
+          <div class="tool" draggable="true" data-kind="rod">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <rect x="14" y="28" width="92" height="9" rx="4.5" fill="#9b7a4e" transform="rotate(-12 60 32)"/>
+              <rect x="14" y="28" width="92" height="9" rx="4.5" fill="none" stroke="#6f5736" stroke-width="2" transform="rotate(-12 60 32)"/>
+            </svg>
+            <div class="label">Rod</div>
+          </div>
+          <div class="tool" draggable="true" data-kind="pad">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <rect x="22" y="30" width="76" height="15" rx="7.5" fill="#1f9e8a"/>
+              <rect x="22" y="30" width="76" height="6" rx="3" fill="#37c2ab"/>
+              <rect x="22" y="30" width="76" height="15" rx="7.5" fill="none" stroke="#0f6e60" stroke-width="2"/>
+              <path d="M40,40 L46,34 L52,40 M62,40 L68,34 L74,40 M84,40 L90,34 L96,40" fill="none" stroke="#0f6e60" stroke-width="2" opacity="0.6"/>
+            </svg>
+            <div class="label">Bouncing pad</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <button class="grouphead">
+          <svg class="gico" viewBox="0 0 60 40" aria-hidden="true">
+            <rect x="6" y="16" width="48" height="6" rx="3" fill="#9b7a4e" stroke="#6f5736" stroke-width="1.5" transform="rotate(-10 30 19)"/>
+            <path d="M22,34 L38,34 L30,20 Z" fill="#C28E4B" stroke="#8A5E2E" stroke-width="2" stroke-linejoin="round"/>
+            <circle cx="30" cy="20" r="2.6" fill="#5b4327"/>
+          </svg>
+          <span class="gtitle">Lever</span><span class="chev">&#8250;</span>
+        </button>
+        <div class="groupbody">
+          <div class="tool" draggable="true" data-kind="lever">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <rect x="18" y="26" width="84" height="8" rx="4" fill="#9b7a4e" stroke="#6f5736" stroke-width="1.5" transform="rotate(-9 60 30)"/>
+              <path d="M50,52 L70,52 L60,32 Z" fill="#C28E4B" stroke="#8A5E2E" stroke-width="2" stroke-linejoin="round"/>
+              <circle cx="60" cy="32" r="3.4" fill="#5b4327"/>
+            </svg>
+            <div class="label">Lever</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <button class="grouphead">
+          <svg class="gico" viewBox="0 0 60 40" aria-hidden="true">
+            <circle cx="30" cy="16" r="10" fill="#c79a5a" stroke="#7a5a2e" stroke-width="2"/>
+            <circle cx="30" cy="16" r="3" fill="#7a5a2e"/>
+            <path d="M20,16 L20,34 M40,16 L40,34" stroke="#8a7a5a" stroke-width="2" fill="none"/>
+            <path d="M20,16 a10 10 0 0 1 20 0" fill="none" stroke="#8a7a5a" stroke-width="2"/>
+          </svg>
+          <span class="gtitle">Pulley</span><span class="chev">&#8250;</span>
+        </button>
+        <div class="groupbody">
+          <div class="tool" draggable="true" data-kind="pulley">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <circle cx="60" cy="20" r="12" fill="#c79a5a" stroke="#7a5a2e" stroke-width="2.5"/>
+              <circle cx="60" cy="20" r="3.5" fill="#7a5a2e"/>
+              <path d="M48,20 L48,48 M72,20 L72,48" stroke="#8a7a5a" stroke-width="2.5" fill="none"/>
+              <path d="M48,20 a12 12 0 0 1 24 0" fill="none" stroke="#8a7a5a" stroke-width="2.5"/>
+            </svg>
+            <div class="label">Fixed pulley</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <button class="grouphead">
+          <svg class="gico" viewBox="0 0 60 40" aria-hidden="true">
+            <circle cx="22" cy="20" r="13" fill="#e08032" stroke="#9c4f16" stroke-width="2"/>
+            <path d="M9,20 h26 M22,7 v26 M13,11 Q22,20 13,29 M31,11 Q22,20 31,29" fill="none" stroke="#9c4f16" stroke-width="1.3"/>
+            <path d="M40,16 L52,16 L55,33 L37,33 Z" fill="#5b8fc9" stroke="#1a1a1a" stroke-width="1.6" stroke-linejoin="round"/>
+          </svg>
+          <span class="gtitle">Extras</span><span class="chev">&#8250;</span>
+        </button>
+        <div class="groupbody">
+          <div class="tool" draggable="true" data-kind="football">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <circle cx="60" cy="32" r="20" fill="#fff" stroke="#222" stroke-width="2"/>
+              <line x1="60.0" y1="26.0" x2="60.0" y2="12.4" stroke="#222" stroke-width="1.2"/>
+              <line x1="65.7" y1="30.1" x2="78.6" y2="25.9" stroke="#222" stroke-width="1.2"/>
+              <line x1="63.5" y1="36.9" x2="71.5" y2="47.9" stroke="#222" stroke-width="1.2"/>
+              <line x1="56.5" y1="36.9" x2="48.5" y2="47.9" stroke="#222" stroke-width="1.2"/>
+              <line x1="54.3" y1="30.1" x2="41.4" y2="25.9" stroke="#222" stroke-width="1.2"/>
+              <polygon points="73.2,19.1 71.3,24.9 65.2,24.9 63.3,19.1 68.2,15.5" fill="#222"/>
+              <polygon points="76.4,40.5 70.3,40.5 68.4,34.7 73.3,31.1 78.3,34.7" fill="#222"/>
+              <polygon points="56.9,50.2 55.1,44.4 60.0,40.8 64.9,44.4 63.1,50.2" fill="#222"/>
+              <polygon points="41.7,34.7 46.7,31.1 51.6,34.7 49.7,40.5 43.6,40.5" fill="#222"/>
+              <polygon points="51.8,15.5 56.7,19.1 54.8,24.9 48.7,24.9 46.8,19.1" fill="#222"/>
+              <polygon points="60.0,26.0 65.7,30.1 63.5,36.9 56.5,36.9 54.3,30.1" fill="#222"/>
+            </svg>
+            <div class="label">Football</div>
+          </div>
+          <div class="tool" draggable="true" data-kind="tennis">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <circle cx="60" cy="32" r="18" fill="#d7e94a" stroke="#aebf2c" stroke-width="2"/>
+              <path d="M48,20 Q60,32 48,44" fill="none" stroke="#fff" stroke-width="2"/>
+              <path d="M72,20 Q60,32 72,44" fill="none" stroke="#fff" stroke-width="2"/>
+            </svg>
+            <div class="label">Tennis ball</div>
+          </div>
+          <div class="tool" draggable="true" data-kind="basketball">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <circle cx="60" cy="32" r="20" fill="#e08032" stroke="#9c4f16" stroke-width="2"/>
+              <path d="M40,32 h40 M60,12 v40 M45,16 Q60,32 45,48 M75,16 Q60,32 75,48" fill="none" stroke="#9c4f16" stroke-width="1.8"/>
+            </svg>
+            <div class="label">Basketball</div>
+          </div>
+          <div class="tool" draggable="true" data-kind="weight">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <circle cx="60" cy="18" r="7" fill="none" stroke="#1a1a1a" stroke-width="3"/>
+              <path d="M50,26 L70,26 L78,52 L42,52 Z" fill="#5b8fc9" stroke="#1a1a1a" stroke-width="2.5" stroke-linejoin="round"/>
+            </svg>
+            <div class="label">Weight</div>
+          </div>
+          <div class="tool" draggable="true" data-kind="bucket">
+            <svg width="76" height="44" viewBox="0 0 120 64" aria-hidden="true">
+              <path d="M48,16 Q60,2 72,16" fill="none" stroke="#5b5f66" stroke-width="2.5"/>
+              <path d="M44,22 L76,22 L72,52 L48,52 Z" fill="#8a8f98" stroke="#3f444b" stroke-width="2.5" stroke-linejoin="round"/>
+              <path d="M44,22 L76,22" fill="none" stroke="#a7acb4" stroke-width="3"/>
+            </svg>
+            <div class="label">Bucket</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <button class="grouphead">
+          <svg class="gico" viewBox="0 0 60 40" aria-hidden="true">
+            <circle cx="30" cy="20" r="13" fill="none" stroke="#c0b6a2" stroke-width="2" stroke-dasharray="3 3"/>
+            <text x="30" y="26" font-size="16" fill="#c0b6a2" text-anchor="middle" font-family="sans-serif">+</text>
+          </svg>
+          <span class="gtitle" style="color:#a99f8c;">Coming soon</span><span class="chev">&#8250;</span>
+        </button>
+        <div class="groupbody">
+          <div class="comingsoon">Pulley</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabpane" data-pane="presets">
+      <div class="sectionlabel">SAVED MACHINES</div>
+      <div class="comingsoon">Your saved machines will appear here.</div>
+    </div>
+
+    <div class="tabpane" data-pane="settings">
+      <div class="sectionlabel">BOARD</div>
+      <div class="settingrow"><span>Show grid</span><span class="muted">On</span></div>
+      <div class="settingrow"><span>Gravity</span><span class="muted">Earth (9.8)</span></div>
+      <div class="settingrow"><span>Physics engine</span><span class="muted">Planck.js</span></div>
+      <span class="badge">Planck.js engine</span>
+    </div>
+  </aside>
+
+  <div id="stageWrap">
+    <div id="toolbar">
+      <button class="tb iconbtn" id="undoBtn" title="Undo" aria-label="Undo" disabled></button>
+      <button class="tb iconbtn" id="redoBtn" title="Redo" aria-label="Redo" disabled></button>
+      <div class="divider"></div>
+      <button class="tb primary" id="playBtn">&#9654; Play</button>
+      <button class="tb" id="resetBtn">&#8634; Reset</button>
+      <div class="sp"></div>
+      <button class="tb" id="clearBtn">Clear board</button>
+    </div>
+    <div id="stage">
+      <div id="emptyHint">Drag a part onto the board to start building</div>
+      <canvas id="world"></canvas>
+      <div id="submenu"></div>
+      <div id="runNote">Pause or reset the simulation to add objects</div>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/planck@1.4.2/dist/planck.min.js"></script>
+<script>
+(function(){
+  const pl=planck, {World,Vec2,Box,Circle,Polygon,RevoluteJoint,PulleyJoint}=pl;
+  // inline icons for the mini submenu
+  const MIRROR_SVG='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 8l-3 4 3 4"/><path d="M19 8l3 4-3 4"/><path d="M8 12h-4"/><path d="M20 12h-4"/></svg>';
+  const TRASH_SVG='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+  const UNDO_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/></svg>';
+  const REDO_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0-5 5v0a5 5 0 0 0 5 5h6"/></svg>';
+  const ROTL_SVG='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5v5h5"/><path d="M3.5 10a8 8 0 1 1-1 4"/></svg>';
+  const ROTR_SVG='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5v5h-5"/><path d="M20.5 10a8 8 0 1 0 1 4"/></svg>';
+  function fmtWeight(grams){ return grams>=1000 ? (grams/1000).toFixed(grams%1000===0?0:1)+' kg' : grams+' g'; }
+  // tab switching
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click',()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));
+      const pane=t.dataset.tab;
+      document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('active',p.dataset.pane===pane));
+    });
+  });
+  // collapsible part groups: click a heading to expand/collapse
+  document.querySelectorAll('.grouphead').forEach(h=>{
+    h.addEventListener('click',()=>h.parentElement.classList.toggle('open'));
+  });
+  const S=30; // px per meter
+  const stage=document.getElementById('stage'),canvas=document.getElementById('world'),ctx=canvas.getContext('2d');
+  const submenu=document.getElementById('submenu'),emptyHint=document.getElementById('emptyHint'),playBtn=document.getElementById('playBtn');
+  let world,parts=[],uid=1,selectedId=null,running=false,snapshot=null;
+  let W=0,H=0,DPR=Math.min(window.devicePixelRatio||1,2);
+  let ground,leftWall,rightWall;
+  // ---- undo/redo history ----
+  const undoBtn=document.getElementById('undoBtn'), redoBtn=document.getElementById('redoBtn');
+  undoBtn.innerHTML=UNDO_SVG; redoBtn.innerHTML=REDO_SVG;
+  let history=[], histIndex=-1;
+  function serialize(){ return JSON.stringify(parts.map(p=>{const q=pxPos(p);return {id:p.id,kind:p.kind,props:p.props,px:q.x,py:q.y};})); }
+  function pushHistory(){
+    // drop any redo branch, append current state
+    history=history.slice(0,histIndex+1);
+    history.push(serialize());
+    histIndex=history.length-1;
+    updateHistoryButtons();
+  }
+  function updateHistoryButtons(){
+    undoBtn.disabled = histIndex<=0;
+    redoBtn.disabled = histIndex>=history.length-1;
+  }
+  function restoreState(json){
+    parts.forEach(destroy); parts=[];
+    const arr=JSON.parse(json);
+    arr.forEach(s=>{const p={id:s.id,kind:s.kind,props:JSON.parse(JSON.stringify(s.props)),px:s.px,py:s.py};instantiate(p);parts.push(p);});
+    // keep uid ahead of any restored id
+    arr.forEach(s=>{ if(s.id>=uid) uid=s.id+1; });
+    deselect();
+    emptyHint.style.display = parts.length?'none':'block';
+  }
+  function undo(){ if(histIndex<=0)return; histIndex--; restoreState(history[histIndex]); updateHistoryButtons(); }
+  function redo(){ if(histIndex>=history.length-1)return; histIndex++; restoreState(history[histIndex]); updateHistoryButtons(); }
+  undoBtn.onclick=undo; redoBtn.onclick=redo;
+
+  function buildWorld(){
+    world=new World(Vec2(0,9.8));
+    ground=world.createBody({type:'static'}); ground.createFixture(Box(4000/S,30/S),{friction:0.9});
+    leftWall=world.createBody({type:'static'}); leftWall.createFixture(Box(30/S,3000/S),{friction:0.2});
+    rightWall=world.createBody({type:'static'}); rightWall.createFixture(Box(30/S,3000/S),{friction:0.2});
+    placeBounds();
+  }
+  function placeBounds(){
+    ground.setPosition(Vec2((W/2)/S,(H+30)/S));
+    leftWall.setPosition(Vec2((-30)/S,(H/2)/S));
+    rightWall.setPosition(Vec2((W+30)/S,(H/2)/S));
+  }
+  function resize(){ W=stage.clientWidth;H=stage.clientHeight;canvas.width=W*DPR;canvas.height=H*DPR;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0); if(ground)placeBounds(); }
+
+  // ---- factories (positions in PX; converted to meters internally) ----
+  function makeWagon(cxPx,cyPx,props){
+    const w=props.weight;
+    const bedW=(70+w*2.2)/S,bedH=(16+w*0.7)/S,wheelR=(11+w*0.25)/S;
+    const axleY=bedH/2+wheelR*0.4,wxOff=bedW*0.30;
+    // chassis body
+    const chassis=world.createBody({type:'dynamic',position:Vec2(cxPx/S,cyPx/S),angularDamping:0.6});
+    chassis.createFixture(Box(bedW/2,bedH/2),{density:1*(0.6+w*0.1),friction:0.3,restitution:0});
+    // two wheels as separate bodies joined by free-spinning revolute (bearing) joints
+    const wheels=[-wxOff,wxOff].map(ox=>{
+      const wb=world.createBody({type:'dynamic',position:Vec2(cxPx/S+ox,cyPx/S+axleY)});
+      wb.createFixture(Circle(wheelR),{density:1.5,friction:0.9,restitution:0});
+      world.createJoint(new RevoluteJoint({},chassis,wb,wb.getPosition()));
+      return wb;
+    });
+    return {body:chassis,wheels,bedWpx:70+w*2.2,bedHpx:16+w*0.7,wheelRpx:11+w*0.25,axleYpx:(axleY*S),wxOffPx:(wxOff*S)};
+  }
+  function makeIncline(cxPx,cyPx,props){
+    const {width:Wd,height:Ht,flip}=props;
+    // we store baseLeft as the body origin; verts relative (apex high-left unless flip)
+    const b=world.createBody({type:'static',position:Vec2(cxPx/S,cyPx/S)});
+    let v=flip?[Vec2(0,0),Vec2(Wd/S,0),Vec2(Wd/S,-Ht/S)]:[Vec2(0,0),Vec2(Wd/S,0),Vec2(0,-Ht/S)];
+    b.createFixture(Polygon(v),{friction:0.6});
+    return {body:b,Wd,Ht,flip};
+  }
+  const ROD_THICK=12;   // px
+  function makeRod(cxPx,cyPx,props){
+    const {length:L,angle:Adeg}=props;
+    // body centered at cx,cy; rod is a thin box of length L, rotated by angle about center
+    const b=world.createBody({type:'static',position:Vec2(cxPx/S,cyPx/S),angle:Adeg*Math.PI/180});
+    b.createFixture(Box((L/2)/S,(ROD_THICK/2)/S),{friction:0.6});
+    return {body:b,L,thick:ROD_THICK};
+  }
+  const PAD_LEN=130, PAD_THICK=18;   // px (fixed; pad only rotates)
+  function makePad(cxPx,cyPx,props){
+    const {angle:Adeg}=props;
+    const b=world.createBody({type:'static',position:Vec2(cxPx/S,cyPx/S),angle:Adeg*Math.PI/180});
+    // elastic: high restitution so objects bounce off energetically; low friction so they don't stick
+    b.createFixture(Box((PAD_LEN/2)/S,(PAD_THICK/2)/S),{friction:0.2,restitution:0.92});
+    return {body:b,L:PAD_LEN,thick:PAD_THICK};
+  }
+  // ball presets: each variant has its own default radius(px), weight(kg) and real-ish bounciness
+  const BALL_PRESETS={
+    football:   {radius:22, weight:0.43, restitution:0.55, fill:'#ffffff', stroke:'#222222'},
+    tennis:     {radius:13, weight:0.06, restitution:0.75, fill:'#d7e94a', stroke:'#aebf2c'},
+    basketball: {radius:24, weight:0.62, restitution:0.82, fill:'#e08032', stroke:'#9c4f16'}
+  };
+  function makeBall(cxPx,cyPx,props){
+    const {radius:R,weight:Wkg,variant}=props;
+    const preset=BALL_PRESETS[variant]||BALL_PRESETS.football;
+    // density chosen so the body's mass ~= weight (mass = density * area in m^2)
+    const areaM2=Math.PI*(R/S)*(R/S);
+    const density=Math.max(0.05, Wkg/areaM2);
+    const b=world.createBody({type:'dynamic',position:Vec2(cxPx/S,cyPx/S)});
+    b.createFixture(Circle(R/S),{density,friction:0.5,restitution:preset.restitution});
+    return {body:b,R,variant};
+  }
+  // free-rolling wheels: discs with high friction (grip & roll) and low restitution (don't bounce)
+  const WHEEL_PRESETS={
+    cartwheel: {radius:30, weight:2.0, fill:'#b8895a', stroke:'#6f4a26'},
+    tyre:      {radius:26, weight:3.5, fill:'#2f2f33', stroke:'#141417'}
+  };
+  function makeWheel(cxPx,cyPx,props){
+    const {radius:R,weight:Wkg}=props;
+    const areaM2=Math.PI*(R/S)*(R/S);
+    const density=Math.max(0.05, Wkg/areaM2);
+    const b=world.createBody({type:'dynamic',position:Vec2(cxPx/S,cyPx/S)});
+    b.createFixture(Circle(R/S),{density,friction:0.9,restitution:0.1});
+    return {body:b,R,variant:props.variant};
+  }
+  // weight: a dense square block; size = side length in px, weight in kg
+  function makeWeight(cxPx,cyPx,props){
+    const {size:Sz,weight:Wkg}=props;
+    const sideM=Sz/S;
+    const density=Math.max(0.05, Wkg/(sideM*sideM));
+    const b=world.createBody({type:'dynamic',position:Vec2(cxPx/S,cyPx/S),angularDamping:0.2});
+    b.createFixture(Box((Sz/2)/S,(Sz/2)/S),{density,friction:0.6,restitution:0.02});
+    return {body:b,size:Sz};
+  }
+  // bucket: an open container (floor + two walls) so objects can be dropped in; weight is the empty mass
+  const BUCKET_WALL=6;   // px wall thickness
+  function makeBucket(cxPx,cyPx,props){
+    const {size:Sz,weight:Wkg}=props;
+    const half=Sz/2, t=BUCKET_WALL/2;
+    // distribute the empty mass across the three pieces via density
+    const totalAreaM2=((Sz*BUCKET_WALL)+(2*Sz*BUCKET_WALL))/(S*S);
+    const density=Math.max(0.05, Wkg/Math.max(0.0001,totalAreaM2));
+    const b=world.createBody({type:'dynamic',position:Vec2(cxPx/S,cyPx/S),angularDamping:0.3});
+    // floor (origin is the bucket center; floor at the bottom)
+    b.createFixture(Box((half)/S,(t)/S, Vec2(0,(half)/S),0),{density,friction:0.7,restitution:0.02});
+    // left wall
+    b.createFixture(Box((t)/S,(half)/S, Vec2((-half+t)/S,0),0),{density,friction:0.7,restitution:0.02});
+    // right wall
+    b.createFixture(Box((t)/S,(half)/S, Vec2((half-t)/S,0),0),{density,friction:0.7,restitution:0.02});
+    return {body:b,size:Sz};
+  }
+  // ---- lever: a beam (rod) pivoting on a wedge (fulcrum) ----
+  const LEVER_BEAM_THICK=14, LEVER_WEDGE_W=70, LEVER_WEDGE_H=58;
+  // (cxPx,cyPx) is the BEAM CENTER (stored position). The fulcrum sits under the beam at
+  // +fulcOff along the beam axis; moving the slider slides the WEDGE, not the beam.
+  function makeLever(cxPx,cyPx,props){
+    const {beamLen:L,beamAngle:Adeg,fulcOff}=props;
+    const a=Adeg*Math.PI/180;
+    const ca=Math.cos(a), sa=Math.sin(a);
+    const upx=Math.sin(a), upy=-Math.cos(a);          // unit normal "up" from the beam
+    // Pivot is on the beam's CENTER line at the fulcrum offset point (symmetric => free rotation).
+    const pivX=cxPx + fulcOff*ca;
+    const pivY=cyPx + fulcOff*sa;
+    // The wedge's COLLISION apex sits a little BELOW the pivot (along world-down) so the beam can
+    // swing far before its underside meets the apex point; visual triangle is full size for looks.
+    const APEX_BELOW=14;                              // px below the beam center line
+    const apexX=pivX, apexY=pivY+APEX_BELOW;
+    const wedge=world.createBody({type:'static',position:Vec2(apexX/S,apexY/S)});
+    const hw=LEVER_WEDGE_W/2/S, h=LEVER_WEDGE_H/S;
+    // single-point apex at (0,0), base spreading downward -> only the tip can contact the beam
+    wedge.createFixture(Polygon([Vec2(0,0),Vec2(-hw,h),Vec2(hw,h)]),{friction:0.6});
+    // beam stays centered at the stored position
+    const beam=world.createBody({type:'dynamic',position:Vec2(cxPx/S,cyPx/S),angle:a,angularDamping:0.1});
+    beam.createFixture(Box((L/2)/S,(LEVER_BEAM_THICK/2)/S),{density:1.2,friction:0.6,restitution:0.05});
+    // pivot joint on the beam center line; collideConnected so the wedge blocks the beam (never passes through)
+    const joint=world.createJoint(new RevoluteJoint({collideConnected:true},wedge,beam,Vec2(pivX/S,pivY/S)));
+    return {wedge,beam,joint,L,thick:LEVER_BEAM_THICK,wedgeW:LEVER_WEDGE_W,wedgeH:LEVER_WEDGE_H,apexBelow:APEX_BELOW};
+  }
+  function defaults(kind){
+    if(kind==='wagon') return {weight:5};
+    if(kind==='rod')   return {length:240,angle:0};
+    if(kind==='pad')   return {angle:0};
+    if(kind==='lever') return {beamLen:300,beamAngle:0,fulcOff:0};
+    if(kind==='weight') return {size:48, weight:5};
+    if(kind==='bucket') return {size:54, weight:0.5, contents:0};
+    if(kind==='pulley') return {wheelR:26, spanX:120, dropY:140, attach:{left:null,right:null}};
+    if(kind==='ball'||BALL_PRESETS[kind]){ const v=BALL_PRESETS[kind]?kind:'football'; const pr=BALL_PRESETS[v]; return {variant:v, radius:pr.radius, weight:pr.weight, inBucket:null}; }
+    if(kind==='wheel'||WHEEL_PRESETS[kind]){ const v=WHEEL_PRESETS[kind]?kind:'cartwheel'; const pr=WHEEL_PRESETS[v]; return {variant:v, radius:pr.radius, weight:pr.weight}; }
+    return {width:240,height:140,flip:false};
+  }
+  // ---- pulley: a fixed wheel; rope runs over the top with two ends hanging down ----
+  // (cxPx,cyPx) is the WHEEL CENTER (mount point). The two rope ends hang at +/- spanX/2, dropY below.
+  function makePulley(cxPx,cyPx,props){
+    // wheel is a static pin point (rope rides over the top; physics is the PulleyJoint between loads)
+    const wheel=world.createBody({type:'static',position:Vec2(cxPx/S,cyPx/S)});
+    // small sensor circle so the wheel can be hit-tested/overlap-checked but doesn't block loads
+    wheel.createFixture(Circle(props.wheelR/S),{isSensor:true});
+    return {wheel,joint:null};
+  }
+  // the two rope-end anchor points (px) where loads hang, given a pulley part
+  function pulleyEnds(p){
+    const c=pxPos(p), R=p.props.wheelR;
+    const lx=c.x - p.props.spanX/2, rx=c.x + p.props.spanX/2;
+    const topY=c.y;                       // rope leaves the wheel near its top sides
+    return {
+      left:{x:lx, y:topY + p.props.dropY},
+      right:{x:rx, y:topY + p.props.dropY},
+      // points on the wheel rim where the rope bends over (ground anchors for the joint)
+      anchorL:{x:c.x - R, y:c.y},
+      anchorR:{x:c.x + R, y:c.y}
+    };
+  }
+
+  // ---- palette drag-to-spawn ----
+  const runNote=document.getElementById('runNote');
+  let runNoteTimer=null;
+  function showRunNote(){ runNote.classList.add('show'); clearTimeout(runNoteTimer); runNoteTimer=setTimeout(()=>runNote.classList.remove('show'),2200); }
+  document.querySelectorAll('.tool').forEach(t=>{ t.addEventListener('dragstart',e=>{
+    if(running){ e.preventDefault(); showRunNote(); return; }
+    e.dataTransfer.setData('kind',t.dataset.kind);e.dataTransfer.effectAllowed='copy';
+  }); });
+  stage.addEventListener('dragover',e=>{ if(running)return; e.preventDefault();e.dataTransfer.dropEffect='copy';});
+  stage.addEventListener('drop',e=>{e.preventDefault(); if(running){showRunNote();return;} const k=e.dataTransfer.getData('kind');if(!k)return;const r=stage.getBoundingClientRect();spawn(k,e.clientX-r.left,e.clientY-r.top);});
+
+  function spawn(kind,x,y){
+    emptyHint.style.display='none';
+    let px=x,py=y;
+    let props;
+    if(BALL_PRESETS[kind]){ props=defaults(kind); kind='ball'; }   // football/tennis/basketball -> ball
+    else if(WHEEL_PRESETS[kind]){ props=defaults(kind); kind='wheel'; }  // cartwheel/tyre -> wheel
+    else props=defaults(kind);
+    if(kind==='incline'){ px=x-defaults('incline').width/2; py=y+defaults('incline').height/2; } // drop centers the triangle
+    const p={id:uid++,kind,props,px,py}; instantiate(p); parts.push(p); select(p.id);
+    resolveOverlap(p,16);
+    pushHistory();
+  }
+  function instantiate(p){
+    if(p.matter) destroy(p);
+    if(p.kind==='wagon') p.matter=makeWagon(p.px,p.py,p.props);
+    else if(p.kind==='rod') p.matter=makeRod(p.px,p.py,p.props);
+    else if(p.kind==='pad') p.matter=makePad(p.px,p.py,p.props);
+    else if(p.kind==='ball') p.matter=makeBall(p.px,p.py,p.props);
+    else if(p.kind==='wheel') p.matter=makeWheel(p.px,p.py,p.props);
+    else if(p.kind==='weight') p.matter=makeWeight(p.px,p.py,p.props);
+    else if(p.kind==='bucket') p.matter=makeBucket(p.px,p.py,p.props);
+    else if(p.kind==='pulley') p.matter=makePulley(p.px,p.py,p.props);
+    else if(p.kind==='lever') p.matter=makeLever(p.px,p.py,p.props);
+    else p.matter=makeIncline(p.px,p.py,p.props);
+    if(isDynamicPart(p)) freezePart(p,!running);   // frozen while paused
+  }
+  function isDynamicPart(p){ return p.kind==='wagon'||p.kind==='ball'||p.kind==='wheel'||p.kind==='lever'||p.kind==='weight'||p.kind==='bucket'; }
+  function destroy(p){
+    if(!p.matter) return;
+    if(p.kind==='wagon'){ world.destroyBody(p.matter.body); p.matter.wheels.forEach(wb=>world.destroyBody(wb)); }
+    else if(p.kind==='lever'){ world.destroyBody(p.matter.beam); world.destroyBody(p.matter.wedge); }
+    else if(p.kind==='pulley'){ if(p.matter.joint){try{world.destroyJoint(p.matter.joint);}catch(e){}} world.destroyBody(p.matter.wheel); }
+    else world.destroyBody(p.matter.body);
+    p.matter=null;
+  }
+  function freezePart(p,isStatic){
+    const t=isStatic?'static':'dynamic';
+    if(p.kind==='lever'){
+      // wedge stays static always; only the beam toggles (pivots on Play)
+      p.matter.beam.setType(t);
+      if(!isStatic) p.matter.beam.setAwake(true);
+      return;
+    }
+    const bodies = p.kind==='wagon' ? [p.matter.body,...p.matter.wheels] : [p.matter.body];
+    bodies.forEach(b=>b.setType(t));
+    if(!isStatic){ bodies.forEach(b=>b.setAwake(true)); }
+  }
+  function setRunningState(p,run){ if(isDynamicPart(p)) freezePart(p,!run); }
+
+  // ---- overlap prevention (SAT-based, engine-independent so it works at any penetration depth) ----
+  function partBodies(p){
+    if(p.kind==='wagon') return [p.matter.body,...p.matter.wheels];
+    if(p.kind==='lever') return [p.matter.wedge,p.matter.beam];
+    if(p.kind==='pulley') return [p.matter.wheel];
+    return [p.matter.body];
+  }
+  function movePartBy(p,dx,dy){ partBodies(p).forEach(b=>{ const q=b.getPosition(); b.setPosition(Vec2(q.x+dx,q.y+dy)); }); }
+
+  // world-space collision shapes for a part, in PIXELS.
+  // returns {polys:[[ [x,y],... ]], circles:[{x,y,r}]}
+  function partShapes(p){
+    const polys=[], circles=[];
+    const q=pxPos(p);
+    if(p.kind==='wagon'){
+      const m=p.matter, ang=m.body.getAngle();
+      polys.push(rectPts(q.x,q.y,m.bedWpx,m.bedHpx,ang));
+      m.wheels.forEach(wb=>{ const wp=wb.getPosition(); circles.push({x:wp.x*S,y:wp.y*S,r:m.wheelRpx}); });
+    } else if(p.kind==='rod'){
+      polys.push(rectPts(q.x,q.y,p.props.length,ROD_THICK,p.matter.body.getAngle()));
+    } else if(p.kind==='pad'){
+      polys.push(rectPts(q.x,q.y,PAD_LEN,PAD_THICK,p.matter.body.getAngle()));
+    } else if(p.kind==='ball'||p.kind==='wheel'){
+      circles.push({x:q.x,y:q.y,r:p.props.radius});
+    } else if(p.kind==='weight'){
+      polys.push(rectPts(q.x,q.y,p.props.size,p.props.size,p.matter.body.getAngle()));
+    } else if(p.kind==='bucket'){
+      polys.push(rectPts(q.x,q.y,p.props.size,p.props.size,p.matter.body.getAngle()));
+    } else if(p.kind==='pulley'){
+      // pulley is a mount point; no overlap footprint so loads can hang right next to it
+    } else if(p.kind==='lever'){
+      const m=p.matter, hw=m.wedgeW/2;
+      const ap=leverApex(p);
+      const pivY=ap.y-(m.apexBelow||0), baseY=ap.y+m.wedgeH, tipY=pivY+m.thick/2;
+      // wedge triangle (visual/collision footprint): tip under beam, base below
+      polys.push([[ap.x,tipY],[ap.x-hw,baseY],[ap.x+hw,baseY]]);
+      // beam rect at its current body pose
+      const bp=m.beam.getPosition(), ba=m.beam.getAngle();
+      polys.push(rectPts(bp.x*S,bp.y*S,m.L,m.thick,ba));
+    } else { // incline triangle, origin = base-left
+      const {width:Wd,height:Ht,flip}=p.props;
+      polys.push(flip?[[q.x,q.y],[q.x+Wd,q.y],[q.x+Wd,q.y-Ht]]:[[q.x,q.y],[q.x+Wd,q.y],[q.x,q.y-Ht]]);
+    }
+    return {polys,circles};
+  }
+  function rectPts(cx,cy,w,h,ang){
+    const hw=w/2,hh=h/2,c=Math.cos(ang),s=Math.sin(ang);
+    return [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([x,y])=>[cx+x*c-y*s, cy+x*s+y*c]);
+  }
+  function polyCenter(P){ let x=0,y=0; for(const p of P){x+=p[0];y+=p[1];} return [x/P.length,y/P.length]; }
+  // MTV to push polygon A out of polygon B (px), or null if separated
+  function satPolyPoly(A,B){
+    let minO=Infinity,axis=null;
+    for(const poly of [A,B]){
+      for(let i=0;i<poly.length;i++){ const j=(i+1)%poly.length;
+        const ex=poly[j][0]-poly[i][0], ey=poly[j][1]-poly[i][1];
+        let nx=-ey,ny=ex; const L=Math.hypot(nx,ny)||1; nx/=L;ny/=L;
+        let aMin=Infinity,aMax=-Infinity; for(const p of A){const d=p[0]*nx+p[1]*ny; if(d<aMin)aMin=d; if(d>aMax)aMax=d;}
+        let bMin=Infinity,bMax=-Infinity; for(const p of B){const d=p[0]*nx+p[1]*ny; if(d<bMin)bMin=d; if(d>bMax)bMax=d;}
+        if(aMax<bMin||bMax<aMin) return null;
+        const o=Math.min(aMax,bMax)-Math.max(aMin,bMin);
+        if(o<minO){minO=o;axis={x:nx,y:ny};}
+      }
+    }
+    const ca=polyCenter(A), cb=polyCenter(B);
+    const sgn=((ca[0]-cb[0])*axis.x+(ca[1]-cb[1])*axis.y)<0?-1:1;
+    return {x:axis.x*minO*sgn, y:axis.y*minO*sgn};
+  }
+  // MTV to push a circle out of polygon (returns vector to move the CIRCLE), or null
+  function satCirclePoly(cx,cy,r,poly){
+    let minO=Infinity,axis=null;
+    // edge-normal axes
+    for(let i=0;i<poly.length;i++){ const j=(i+1)%poly.length;
+      const ex=poly[j][0]-poly[i][0], ey=poly[j][1]-poly[i][1];
+      let nx=-ey,ny=ex; const L=Math.hypot(nx,ny)||1; nx/=L;ny/=L;
+      let pMin=Infinity,pMax=-Infinity; for(const p of poly){const d=p[0]*nx+p[1]*ny;if(d<pMin)pMin=d;if(d>pMax)pMax=d;}
+      const c=cx*nx+cy*ny; if(c+r<pMin||pMax<c-r) return null;
+      const o=Math.min(c+r,pMax)-Math.max(c-r,pMin);
+      if(o<minO){minO=o;axis={x:nx,y:ny};}
+    }
+    // axis from nearest vertex to circle center (handles corner cases)
+    let nearest=null,nd=Infinity; for(const p of poly){const d=(p[0]-cx)**2+(p[1]-cy)**2; if(d<nd){nd=d;nearest=p;}}
+    if(nearest){ let nx=cx-nearest[0],ny=cy-nearest[1]; const L=Math.hypot(nx,ny)||1; nx/=L;ny/=L;
+      let pMin=Infinity,pMax=-Infinity; for(const p of poly){const d=p[0]*nx+p[1]*ny;if(d<pMin)pMin=d;if(d>pMax)pMax=d;}
+      const c=cx*nx+cy*ny; if(c+r<pMin||pMax<c-r) return null;
+      const o=Math.min(c+r,pMax)-Math.max(c-r,pMin); if(o<minO){minO=o;axis={x:nx,y:ny};}
+    }
+    const cc=polyCenter(poly);
+    const sgn=((cx-cc[0])*axis.x+(cy-cc[1])*axis.y)<0?-1:1;
+    return {x:axis.x*minO*sgn, y:axis.y*minO*sgn};
+  }
+  // compute the largest single push-out vector (px) to separate part p from one other part
+  // does this ball fit (by width) inside this bucket, and is its center within the bucket's mouth/interior?
+  function ballOverBucket(ball, bucket){
+    if(ball.kind!=='ball'||bucket.kind!=='bucket') return false;
+    const bc=pxPos(bucket), s=bucket.props.size, half=s/2, t=BUCKET_WALL;
+    const interiorW=s-2*t;
+    if(2*ball.props.radius > interiorW) return false;             // too wide to fit
+    const c=pxPos(ball);
+    // ball center horizontally within interior, and vertically within (a bit above rim down to floor)
+    return Math.abs(c.x-bc.x) <= half && c.y >= bc.y-half-ball.props.radius && c.y <= bc.y+half+ball.props.radius;
+  }
+  function ballFitsBucket(ball, bucket){
+    const interiorW=bucket.props.size-2*BUCKET_WALL;
+    return 2*ball.props.radius <= interiorW;
+  }
+  function pushOutVsPart(p, other){
+    // exception: a ball that fits a bucket may pass through that bucket's walls to settle inside
+    if(p.kind==='ball'&&other.kind==='bucket'&&ballFitsBucket(p,other)&&ballOverBucket(p,other)) return null;
+    if(p.kind==='bucket'&&other.kind==='ball'&&ballFitsBucket(other,p)&&ballOverBucket(other,p)) return null;
+    // two balls both inside the same bucket shouldn't be pushed apart by the overlap tool (physics stacks them)
+    if(p.kind==='ball'&&other.kind==='ball'&&p.props.inBucket!=null&&p.props.inBucket===other.props.inBucket) return null;
+    const A=partShapes(p), B=partShapes(other);
+    let best={x:0,y:0}, bestMag=0;
+    for(const pa of A.polys){
+      for(const pb of B.polys){ const mtv=satPolyPoly(pa,pb); if(mtv){const mag=Math.hypot(mtv.x,mtv.y); if(mag>bestMag){bestMag=mag;best=mtv;}} }
+      for(const cb of B.circles){ const mtv=satCirclePoly(cb.x,cb.y,cb.r,pa); if(mtv){ const inv={x:-mtv.x,y:-mtv.y}; const mag=Math.hypot(inv.x,inv.y); if(mag>bestMag){bestMag=mag;best=inv;} } }
+    }
+    for(const ca of A.circles){
+      for(const pb of B.polys){ const mtv=satCirclePoly(ca.x,ca.y,ca.r,pb); if(mtv){const mag=Math.hypot(mtv.x,mtv.y); if(mag>bestMag){bestMag=mag;best=mtv;}} }
+      // circle-circle
+      for(const cb of B.circles){ const dx=ca.x-cb.x,dy=ca.y-cb.y; const d=Math.hypot(dx,dy)||1; const overlap=ca.r+cb.r-d;
+        if(overlap>0){ const mag=overlap; if(mag>bestMag){bestMag=mag;best={x:dx/d*overlap,y:dy/d*overlap};} } }
+    }
+    return bestMag>0.01 ? best : null;
+  }
+  // Resolve overlap of the dragged part p against all OTHER parts, pushing p out along the shortest
+  // (minimum-translation) direction. Deterministic SAT geometry — works at any depth, both directions.
+  function resolveOverlap(p, iterations){
+    if(running) return;
+    for(let it=0; it<(iterations||8); it++){
+      let push=null, pushMag=0;
+      for(const other of parts){ if(other===p) continue;
+        const v=pushOutVsPart(p,other);
+        if(v){ const mag=Math.hypot(v.x,v.y); if(mag>pushMag){pushMag=mag;push=v;} }
+      }
+      if(!push) break;
+      // move the dragged part out by the push vector (convert px->meters)
+      movePartBy(p, (push.x+Math.sign(push.x)*0.5)/S, (push.y+Math.sign(push.y)*0.5)/S);
+    }
+  }
+
+  function pxPos(p){ const b = p.kind==='lever' ? p.matter.beam : (p.matter.body||p.matter.wheel||p.matter.wedge); const q=b.getPosition(); return {x:q.x*S,y:q.y*S}; }
+  // the fulcrum apex point in px, derived from the beam center + props (NOT the live beam angle,
+  // which changes during Play — the wedge is static at its built position).
+  function leverApex(p){ const w=p.matter.wedge.getPosition(); return {x:w.x*S, y:w.y*S}; }
+  function partCenter(p){
+    const q=pxPos(p);
+    if(p.kind==='wagon') return {x:q.x,y:q.y,w:p.matter.bedWpx,h:p.matter.bedHpx+p.matter.wheelRpx*2};
+    if(p.kind==='rod'){
+      // axis-aligned bbox of a rotated rod, for the selection box / hit padding
+      const a=p.props.angle*Math.PI/180, L=p.props.length, t=ROD_THICK;
+      const w=Math.abs(L*Math.cos(a))+Math.abs(t*Math.sin(a));
+      const h=Math.abs(L*Math.sin(a))+Math.abs(t*Math.cos(a));
+      return {x:q.x,y:q.y,w,h};
+    }
+    if(p.kind==='pad'){
+      const a=p.props.angle*Math.PI/180, L=PAD_LEN, t=PAD_THICK;
+      const w=Math.abs(L*Math.cos(a))+Math.abs(t*Math.sin(a));
+      const h=Math.abs(L*Math.sin(a))+Math.abs(t*Math.cos(a));
+      return {x:q.x,y:q.y,w,h};
+    }
+    if(p.kind==='ball'||p.kind==='wheel'){ const r=p.props.radius; return {x:q.x,y:q.y,w:r*2,h:r*2}; }
+    if(p.kind==='weight'){ const a=p.matter.body.getAngle(), s=p.props.size; const w=Math.abs(s*Math.cos(a))+Math.abs(s*Math.sin(a)); return {x:q.x,y:q.y,w,h:w}; }
+    if(p.kind==='bucket'){ const a=p.matter.body.getAngle(), s=p.props.size; const w=Math.abs(s*Math.cos(a))+Math.abs(s*Math.sin(a)); return {x:q.x,y:q.y,w,h:w}; }
+    if(p.kind==='pulley'){ const c=pxPos(p); const w=p.props.spanX+40, h=p.props.dropY+p.props.wheelR*2+20; return {x:c.x, y:c.y+ (h/2 - p.props.wheelR), w, h}; }
+    if(p.kind==='lever'){
+      const a=p.matter.beam.getAngle(), L=p.props.beamLen, m=p.matter;
+      const bw=Math.abs(L*Math.cos(a))+Math.abs(m.thick*Math.sin(a));
+      const bh=Math.abs(L*Math.sin(a))+Math.abs(m.thick*Math.cos(a));
+      const w=Math.max(bw,m.wedgeW)+10, h=Math.max(bh,0)+m.wedgeH+m.thick;
+      return {x:q.x, y:q.y, w, h};
+    }
+    // incline body origin is baseLeft; center is +Wd/2, -Ht/2
+    return {x:q.x+p.props.width/2,y:q.y-p.props.height/2,w:p.props.width,h:p.props.height};
+  }
+
+  function select(id){selectedId=id;renderSubmenu();}
+  function deselect(){selectedId=null;submenu.style.display='none';}
+
+  function renderSubmenu(){
+    const p=parts.find(x=>x.id===selectedId);
+    if(!p||running){submenu.style.display='none';return;}
+    let html='';
+    if(p.kind==='wagon'){
+      html='<h3>Wagon</h3><div class="row"><label>Weight</label><input type="range" min="1" max="20" step="1" value="'+p.props.weight+'" id="sm-weight"><span class="val" id="sm-weight-v">'+p.props.weight+' kg</span></div>'+
+        '<div class="iconbar">'+
+        '<button class="iconbtn del" id="sm-del" title="Delete part" aria-label="Delete part">'+TRASH_SVG+'</button>'+
+        '</div>';
+    } else if(p.kind==='rod'){
+      html='<h3>Rod</h3>'+
+        '<div class="row"><label>Stretch</label><input type="range" min="80" max="500" step="10" value="'+p.props.length+'" id="sm-length"><span class="val" id="sm-length-v">'+p.props.length+'</span></div>'+
+        '<div class="iconbar">'+
+        '<button class="iconbtn" id="sm-rotl" title="Rotate left" aria-label="Rotate left">'+ROTL_SVG+'</button>'+
+        '<button class="iconbtn" id="sm-rotr" title="Rotate right" aria-label="Rotate right">'+ROTR_SVG+'</button>'+
+        '<button class="iconbtn del" id="sm-del" title="Delete part" aria-label="Delete part">'+TRASH_SVG+'</button>'+
+        '</div>';
+    } else if(p.kind==='pad'){
+      html='<h3>Bouncing pad</h3>'+
+        '<div class="row" style="color:#9a9384;">Elastic surface — things bounce off it.</div>'+
+        '<div class="iconbar">'+
+        '<button class="iconbtn" id="sm-rotl" title="Rotate left" aria-label="Rotate left">'+ROTL_SVG+'</button>'+
+        '<button class="iconbtn" id="sm-rotr" title="Rotate right" aria-label="Rotate right">'+ROTR_SVG+'</button>'+
+        '<button class="iconbtn del" id="sm-del" title="Delete part" aria-label="Delete part">'+TRASH_SVG+'</button>'+
+        '</div>';
+    } else if(p.kind==='ball'){
+      const nm={football:'Football',tennis:'Tennis ball',basketball:'Basketball'}[p.props.variant]||'Ball';
+      const grams=Math.round(p.props.weight*1000);
+      html='<h3>'+nm+'</h3>'+
+        '<div class="row"><label>Size</label><input type="range" min="8" max="40" step="1" value="'+p.props.radius+'" id="sm-radius"><span class="val" id="sm-radius-v">'+p.props.radius+'</span></div>'+
+        '<div class="row"><label>Weight</label><input type="range" min="20" max="2000" step="10" value="'+grams+'" id="sm-bweight"><span class="val" id="sm-bweight-v">'+fmtWeight(grams)+'</span></div>'+
+        '<div class="iconbar">'+
+        '<button class="iconbtn del" id="sm-del" title="Delete part" aria-label="Delete part">'+TRASH_SVG+'</button>'+
+        '</div>';
+    } else if(p.kind==='wheel'){
+      const nm={cartwheel:'Cartwheel',tyre:'Rubber tyre'}[p.props.variant]||'Wheel';
+      const grams=Math.round(p.props.weight*1000);
+      html='<h3>'+nm+'</h3>'+
+        '<div class="row"><label>Size</label><input type="range" min="12" max="56" step="1" value="'+p.props.radius+'" id="sm-radius"><span class="val" id="sm-radius-v">'+p.props.radius+'</span></div>'+
+        '<div class="row"><label>Weight</label><input type="range" min="100" max="8000" step="50" value="'+grams+'" id="sm-bweight"><span class="val" id="sm-bweight-v">'+fmtWeight(grams)+'</span></div>'+
+        '<div class="iconbar">'+
+        '<button class="iconbtn del" id="sm-del" title="Delete part" aria-label="Delete part">'+TRASH_SVG+'</button>'+
+        '</div>';
+    } else if(p.kind==='weight'){
+      const grams=Math.round(p.props.weight*1000);
+      html='<h3>Weight</h3>'+
+        '<div class="row"><label>Size</label><input type="range" min="20" max="120" step="2" value="'+p.props.size+'" id="sm-wsize"><span class="val" id="sm-wsize-v">'+p.props.size+'</span></div>'+
+        '<div class="row"><label>Weight</label><input type="range" min="100" max="20000" step="100" value="'+grams+'" id="sm-wweight"><span class="val" id="sm-wweight-v">'+fmtWeight(grams)+'</span></div>'+
+        '<div class="iconbar">'+
+        '<button class="iconbtn del" id="sm-del" title="Delete part" aria-label="Delete part">'+TRASH_SVG+'</button>'+
+        '</div>';
+    } else if(p.kind==='bucket'){
+      const grams=Math.round(p.props.weight*1000);
+      html='<h3>Bucket</h3>'+
+        '<div class="row"><label>Size</label><input type="range" min="36" max="110" step="2" value="'+p.props.size+'" id="sm-wsize"><span class="val" id="sm-wsize-v">'+p.props.size+'</span></div>'+
+        '<div class="row"><label>Weight</label><input type="range" min="100" max="5000" step="50" value="'+grams+'" id="sm-wweight"><span class="val" id="sm-wweight-v">'+fmtWeight(grams)+'</span></div>'+
+        '<div class="iconbar">'+
+        '<button class="iconbtn del" id="sm-del" title="Delete part" aria-label="Delete part">'+TRASH_SVG+'</button>'+
+        '</div>';
+    } else if(p.kind==='pulley'){
+      html='<h3>Pulley</h3>'+
+        '<div class="row"><label>Wheel size</label><input type="range" min="16" max="50" step="2" value="'+p.props.wheelR+'" id="sm-pwheel"><span class="val" id="sm-pwheel-v">'+p.props.wheelR+'</span></div>'+
+        '<div class="row"><label>Rope length</label><input type="range" min="60" max="320" step="10" value="'+p.props.dropY+'" id="sm-pdrop"><span class="val" id="sm-pdrop-v">'+p.props.dropY+'</span></div>'+
+        '<div class="iconbar">'+
+        '<button class="iconbtn del" id="sm-del" title="Delete part" aria-label="Delete part">'+TRASH_SVG+'</button>'+
+        '</div>';
+    } else if(p.kind==='lever'){
+      const half=Math.round(p.props.beamLen/2);
+      html='<h3>Lever</h3>'+
+        '<div class="row"><label>Stretch</label><input type="range" min="120" max="520" step="10" value="'+p.props.beamLen+'" id="sm-beamlen"><span class="val" id="sm-beamlen-v">'+p.props.beamLen+'</span></div>'+
+        '<div class="row"><label>Fulcrum</label><input type="range" min="'+(-half)+'" max="'+half+'" step="5" value="'+p.props.fulcOff+'" id="sm-fulc"><span class="val" id="sm-fulc-v">'+p.props.fulcOff+'</span></div>'+
+        '<div class="iconbar">'+
+        '<button class="iconbtn" id="sm-rotl" title="Tilt beam left" aria-label="Tilt beam left">'+ROTL_SVG+'</button>'+
+        '<button class="iconbtn" id="sm-rotr" title="Tilt beam right" aria-label="Tilt beam right">'+ROTR_SVG+'</button>'+
+        '<button class="iconbtn del" id="sm-del" title="Delete part" aria-label="Delete part">'+TRASH_SVG+'</button>'+
+        '</div>';
+    } else {
+      html='<h3>Ramp</h3>'+
+        '<div class="row"><label>Width</label><input type="range" min="100" max="460" step="10" value="'+p.props.width+'" id="sm-width"><span class="val" id="sm-width-v">'+p.props.width+'</span></div>'+
+        '<div class="row"><label>Height</label><input type="range" min="40" max="300" step="10" value="'+p.props.height+'" id="sm-height"><span class="val" id="sm-height-v">'+p.props.height+'</span></div>'+
+        '<div class="iconbar">'+
+        '<button class="iconbtn" id="sm-flip" title="Mirror (flip left/right)" aria-label="Mirror">'+MIRROR_SVG+'</button>'+
+        '<button class="iconbtn del" id="sm-del" title="Delete part" aria-label="Delete part">'+TRASH_SVG+'</button>'+
+        '</div>';
+    }
+    submenu.innerHTML=html;
+    const c=partCenter(p),sr=stage.getBoundingClientRect();
+    let left=c.x+c.w/2+16; if(left+224>sr.width)left=c.x-c.w/2-226; if(left<6)left=6;
+    let top=Math.max(6,Math.min(c.y-40,sr.height-220));
+    submenu.style.left=left+'px';submenu.style.top=top+'px';submenu.style.display='block';
+    if(p.kind==='wagon'){
+      const s=submenu.querySelector('#sm-weight'),v=submenu.querySelector('#sm-weight-v');
+      s.oninput=()=>{p.props.weight=+s.value;v.textContent=s.value+' kg';rebuildBody(p);};
+      s.onchange=()=>pushHistory();
+    } else if(p.kind==='rod'){
+      const sl=submenu.querySelector('#sm-length'),lv=submenu.querySelector('#sm-length-v');
+      sl.oninput=()=>{p.props.length=+sl.value;lv.textContent=sl.value;rebuildBody(p);};
+      sl.onchange=()=>pushHistory();
+      const ROT_STEP=15;
+      submenu.querySelector('#sm-rotl').onclick=()=>{p.props.angle=(p.props.angle-ROT_STEP)%360;rebuildBody(p);pushHistory();};
+      submenu.querySelector('#sm-rotr').onclick=()=>{p.props.angle=(p.props.angle+ROT_STEP)%360;rebuildBody(p);pushHistory();};
+    } else if(p.kind==='pad'){
+      const ROT_STEP=15;
+      submenu.querySelector('#sm-rotl').onclick=()=>{p.props.angle=(p.props.angle-ROT_STEP)%360;rebuildBody(p);pushHistory();};
+      submenu.querySelector('#sm-rotr').onclick=()=>{p.props.angle=(p.props.angle+ROT_STEP)%360;rebuildBody(p);pushHistory();};
+    } else if(p.kind==='ball'||p.kind==='wheel'){
+      const sr=submenu.querySelector('#sm-radius'),rv=submenu.querySelector('#sm-radius-v');
+      const sw=submenu.querySelector('#sm-bweight'),wv=submenu.querySelector('#sm-bweight-v');
+      sr.oninput=()=>{p.props.radius=+sr.value;rv.textContent=sr.value;rebuildBody(p);};
+      sr.onchange=()=>pushHistory();
+      sw.oninput=()=>{p.props.weight=(+sw.value)/1000;wv.textContent=fmtWeight(+sw.value);rebuildBody(p);};
+      sw.onchange=()=>pushHistory();
+    } else if(p.kind==='weight'){
+      const ss=submenu.querySelector('#sm-wsize'),sv=submenu.querySelector('#sm-wsize-v');
+      const sw=submenu.querySelector('#sm-wweight'),wv=submenu.querySelector('#sm-wweight-v');
+      ss.oninput=()=>{p.props.size=+ss.value;sv.textContent=ss.value;rebuildBody(p);};
+      ss.onchange=()=>pushHistory();
+      sw.oninput=()=>{p.props.weight=(+sw.value)/1000;wv.textContent=fmtWeight(+sw.value);rebuildBody(p);};
+      sw.onchange=()=>pushHistory();
+    } else if(p.kind==='bucket'){
+      const ss=submenu.querySelector('#sm-wsize'),sv=submenu.querySelector('#sm-wsize-v');
+      const sw=submenu.querySelector('#sm-wweight'),wv=submenu.querySelector('#sm-wweight-v');
+      ss.oninput=()=>{p.props.size=+ss.value;sv.textContent=ss.value;rebuildBody(p);};
+      ss.onchange=()=>pushHistory();
+      sw.oninput=()=>{p.props.weight=(+sw.value)/1000;wv.textContent=fmtWeight(+sw.value);rebuildBody(p);};
+      sw.onchange=()=>pushHistory();
+    } else if(p.kind==='pulley'){
+      const sr=submenu.querySelector('#sm-pwheel'),rv=submenu.querySelector('#sm-pwheel-v');
+      const sd=submenu.querySelector('#sm-pdrop'),dv=submenu.querySelector('#sm-pdrop-v');
+      sr.oninput=()=>{p.props.wheelR=+sr.value;rv.textContent=sr.value;rebuildBody(p);};
+      sr.onchange=()=>pushHistory();
+      sd.oninput=()=>{p.props.dropY=+sd.value;dv.textContent=sd.value;};
+      sd.onchange=()=>pushHistory();
+    } else if(p.kind==='lever'){
+      const sl=submenu.querySelector('#sm-beamlen'),lv=submenu.querySelector('#sm-beamlen-v');
+      const sf=submenu.querySelector('#sm-fulc'),fv=submenu.querySelector('#sm-fulc-v');
+      sl.oninput=()=>{ p.props.beamLen=+sl.value; lv.textContent=sl.value;
+        // keep fulcrum within the new half-length
+        const half=Math.round(p.props.beamLen/2);
+        if(p.props.fulcOff>half)p.props.fulcOff=half; if(p.props.fulcOff<-half)p.props.fulcOff=-half;
+        rebuildBody(p); };
+      sl.onchange=()=>{ renderSubmenu(); pushHistory(); };   // refresh so fulcrum slider range updates
+      sf.oninput=()=>{ p.props.fulcOff=+sf.value; fv.textContent=sf.value; rebuildBody(p); };
+      sf.onchange=()=>pushHistory();
+      const ROT_STEP=15;
+      submenu.querySelector('#sm-rotl').onclick=()=>{p.props.beamAngle=(p.props.beamAngle-ROT_STEP)%360;rebuildBody(p);pushHistory();};
+      submenu.querySelector('#sm-rotr').onclick=()=>{p.props.beamAngle=(p.props.beamAngle+ROT_STEP)%360;rebuildBody(p);pushHistory();};
+    } else {
+      const sw=submenu.querySelector('#sm-width'),wv=submenu.querySelector('#sm-width-v');
+      const sh=submenu.querySelector('#sm-height'),hv=submenu.querySelector('#sm-height-v');
+      sw.oninput=()=>{p.props.width=+sw.value;wv.textContent=sw.value;rebuildBody(p);};
+      sw.onchange=()=>pushHistory();
+      sh.oninput=()=>{p.props.height=+sh.value;hv.textContent=sh.value;rebuildBody(p);};
+      sh.onchange=()=>pushHistory();
+      submenu.querySelector('#sm-flip').onclick=()=>{p.props.flip=!p.props.flip;rebuildBody(p);pushHistory();};
+    }
+    submenu.querySelector('#sm-del').onclick=()=>removePart(p.id);
+  }
+  // rebuild only the physics body (keeps the submenu DOM intact so sliders stay draggable)
+  function rebuildBody(p){ const q=pxPos(p); p.px=q.x;p.py=q.y; instantiate(p); resolveOverlap(p,16); }
+  function removePart(id){const i=parts.findIndex(p=>p.id===id);if(i<0)return;destroy(parts[i]);parts.splice(i,1);deselect();if(!parts.length)emptyHint.style.display='block';pushHistory();}
+
+  // ---- canvas mouse: select + drag while paused ----
+  let drag=null;
+  function pointInIncline(mx,my,p){
+    const o=pxPos(p),{width:Wd,height:Ht,flip}=p.props;
+    // triangle screen corners
+    const A={x:o.x,y:o.y}, B={x:o.x+Wd,y:o.y}, C= flip?{x:o.x+Wd,y:o.y-Ht}:{x:o.x,y:o.y-Ht};
+    return ptInTri(mx,my,A,B,C);
+  }
+  function ptInTri(px,py,a,b,c){
+    const d1=sign(px,py,a,b),d2=sign(px,py,b,c),d3=sign(px,py,c,a);
+    const neg=(d1<0)||(d2<0)||(d3<0), pos=(d1>0)||(d2>0)||(d3>0); return !(neg&&pos);
+  }
+  function sign(px,py,a,b){return (px-b.x)*(a.y-b.y)-(a.x-b.x)*(py-b.y);}
+  function pointInRod(mx,my,p){
+    const o=pxPos(p), a=p.props.angle*Math.PI/180;
+    // transform the point into the rod's local frame (unrotate about center)
+    const dx=mx-o.x, dy=my-o.y, ca=Math.cos(-a), sa=Math.sin(-a);
+    const lx=dx*ca-dy*sa, ly=dx*sa+dy*ca;
+    return Math.abs(lx)<=p.props.length/2+6 && Math.abs(ly)<=ROD_THICK/2+8;
+  }
+  function pointInPad(mx,my,p){
+    const o=pxPos(p), a=p.props.angle*Math.PI/180;
+    const dx=mx-o.x, dy=my-o.y, ca=Math.cos(-a), sa=Math.sin(-a);
+    const lx=dx*ca-dy*sa, ly=dx*sa+dy*ca;
+    return Math.abs(lx)<=PAD_LEN/2+6 && Math.abs(ly)<=PAD_THICK/2+8;
+  }
+  function pointInLever(mx,my,p){
+    const m=p.matter;
+    // wedge triangle (matches the drawn shape: tip under beam center, base below)
+    const ap=leverApex(p), hw=m.wedgeW/2;
+    const pivY=ap.y-(m.apexBelow||0), baseY=ap.y+m.wedgeH, tipY=pivY+m.thick/2;
+    if(ptInTri(mx,my,{x:ap.x,y:tipY},{x:ap.x-hw,y:baseY},{x:ap.x+hw,y:baseY})) return true;
+    // beam: unrotate about beam center
+    const bp=m.beam.getPosition(), ba=m.beam.getAngle();
+    const bx=bp.x*S, by=bp.y*S;
+    const dx=mx-bx, dy=my-by, ca=Math.cos(-ba), sa=Math.sin(-ba);
+    const lx=dx*ca-dy*sa, ly=dx*sa+dy*ca;
+    return Math.abs(lx)<=m.L/2+6 && Math.abs(ly)<=m.thick/2+8;
+  }
+  function pointInWeight(mx,my,p){
+    const o=pxPos(p), a=p.matter.body.getAngle();
+    const dx=mx-o.x, dy=my-o.y, ca=Math.cos(-a), sa=Math.sin(-a);
+    const lx=dx*ca-dy*sa, ly=dx*sa+dy*ca;
+    return Math.abs(lx)<=p.props.size/2+6 && Math.abs(ly)<=p.props.size/2+6;
+  }
+  function hitTest(mx,my){
+    // a ball sitting inside a bucket: single click should select the BUCKET. So check buckets first.
+    for(let i=parts.length-1;i>=0;i--){const p=parts[i]; if(p.kind==='bucket'&&pointInWeight(mx,my,p))return p; }
+    for(let i=parts.length-1;i>=0;i--){const p=parts[i];
+      if(p.kind==='bucket') continue;   // already handled above
+      if(p.kind==='incline'){ if(pointInIncline(mx,my,p))return p; }
+      else if(p.kind==='rod'){ if(pointInRod(mx,my,p))return p; }
+      else if(p.kind==='pad'){ if(pointInPad(mx,my,p))return p; }
+      else if(p.kind==='ball'||p.kind==='wheel'){ const o=pxPos(p); if(Math.hypot(mx-o.x,my-o.y)<=p.props.radius+6)return p; }
+      else if(p.kind==='weight'){ if(pointInWeight(mx,my,p))return p; }
+      else if(p.kind==='pulley'){ const o=pxPos(p); if(Math.hypot(mx-o.x,my-o.y)<=p.props.wheelR+8)return p; }
+      else if(p.kind==='lever'){ if(pointInLever(mx,my,p))return p; }
+      else { const c=partCenter(p); if(Math.abs(mx-c.x)<=c.w/2+8&&Math.abs(my-c.y)<=c.h/2+8)return p; }
+    }
+    return null;
+  }
+  canvas.addEventListener('mousedown',e=>{ if(running)return; const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top; const p=hitTest(mx,my);
+    if(p){select(p.id);const c=partCenter(p);drag={p,dx:mx-c.x,dy:my-c.y,startX:c.x,startY:c.y};submenu.style.display='none';} else deselect(); });
+  // double-click selects a ball at the point (e.g. a ball sitting inside a bucket); single click selects the bucket
+  canvas.addEventListener('dblclick',e=>{ if(running)return; const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+    // find the topmost BALL under the cursor
+    let found=null;
+    for(let i=parts.length-1;i>=0;i--){ const p=parts[i]; if(p.kind!=='ball')continue; const o=pxPos(p); if(Math.hypot(mx-o.x,my-o.y)<=p.props.radius+4){found=p;break;} }
+    if(found){ select(found.id); const c=partCenter(found); drag={p:found,dx:mx-c.x,dy:my-c.y,startX:c.x,startY:c.y}; submenu.style.display='none'; renderSubmenu(); } });
+  window.addEventListener('mousemove',e=>{ if(!drag||running)return; const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top; const p=drag.p;
+    const cx=mx-drag.dx, cy=my-drag.dy;  // desired CENTER in px
+    if(p.kind==='wagon'){
+      const old=p.matter.body.getPosition();
+      const ndx=cx/S-old.x, ndy=cy/S-old.y;
+      p.matter.body.setPosition(Vec2(cx/S,cy/S));
+      p.matter.wheels.forEach(wb=>{const wp=wb.getPosition(); wb.setPosition(Vec2(wp.x+ndx,wp.y+ndy));});
+    }
+    else if(p.kind==='rod'){ p.matter.body.setPosition(Vec2(cx/S,cy/S)); }
+    else if(p.kind==='pad'){ p.matter.body.setPosition(Vec2(cx/S,cy/S)); }
+    else if(p.kind==='ball'||p.kind==='wheel'){ p.matter.body.setPosition(Vec2(cx/S,cy/S)); }
+    else if(p.kind==='weight'){ p.matter.body.setPosition(Vec2(cx/S,cy/S)); }
+    else if(p.kind==='bucket'){ p.matter.body.setPosition(Vec2(cx/S,cy/S)); }
+    else if(p.kind==='pulley'){ p.matter.wheel.setPosition(Vec2(cx/S,cy/S)); }
+    else if(p.kind==='lever'){
+      const c=partCenter(p); const ndx=(cx-c.x)/S, ndy=(cy-c.y)/S;
+      partBodies(p).forEach(b=>{const bp=b.getPosition(); b.setPosition(Vec2(bp.x+ndx,bp.y+ndy));});
+    }
+    else { p.matter.body.setPosition(Vec2((cx-p.props.width/2)/S,(cy+p.props.height/2)/S)); }
+    resolveOverlap(p,14);  // live push-out along shortest direction so parts never bury into each other
+  });
+  // ---- pulley attach/detach (only weight & bucket can attach to a rope end) ----
+  const ATTACH_DIST=46;   // px: how close a load's top must be to a rope end to snap on
+  function isAttachable(p){ return p.kind==='weight'||p.kind==='bucket'; }
+  function loadTopOffset(p){
+    if(p.kind==='bucket'){ const s=p.props.size; const bailH=s*0.55; return s/2 + bailH*0.5; }  // peak of the handle arc (quadratic midpoint)
+    return p.props.size/2;   // weight: top edge
+  }
+  // the single point on a load where the rope attaches, in world px (rotates with the body)
+  function loadAnchorPoint(p){
+    const o=pxPos(p), off=loadTopOffset(p);
+    const ang = p.matter && p.matter.body ? p.matter.body.getAngle() : 0;
+    // local point is straight up from center by 'off'; rotate it by the body angle
+    const lx=0, ly=-off;
+    const ca=Math.cos(ang), sa=Math.sin(ang);
+    return { x:o.x + (lx*ca-ly*sa), y:o.y + (lx*sa+ly*ca) };
+  }
+  // find the part attached to a given pulley end (by id), or null
+  function attachedPart(pulley,side){ const id=pulley.props.attach[side]; return id==null?null:parts.find(x=>x.id===id)||null; }
+  // detach a load from any pulley it's on
+  function detachLoad(loadId){
+    parts.forEach(p=>{ if(p.kind==='pulley'){ if(p.props.attach.left===loadId)p.props.attach.left=null; if(p.props.attach.right===loadId)p.props.attach.right=null; } });
+  }
+  // snap a load so its top sits at the rope-end point
+  function snapLoadToEnd(load, end){
+    const top=loadTopOffset(load);
+    const cx=end.x, cy=end.y+top;       // center sits below the end by half the load height
+    load.matter.body.setPosition(Vec2(cx/S,cy/S));
+    load.matter.body.setAngle(0);
+    load.px=cx; load.py=cy;
+  }
+  // after dragging an attachable load, see if it should attach to / detach from a pulley end
+  function tryAttachDetach(load){
+    if(!isAttachable(load)) return;
+    detachLoad(load.id);                // clear any old attachment first
+    const c=partCenter(load);
+    const topPt={x:c.x, y:c.y-loadTopOffset(load)};   // the load's top-center
+    let best=null,bestD=ATTACH_DIST;
+    for(const p of parts){ if(p.kind!=='pulley')continue;
+      const ends=pulleyEnds(p);
+      for(const side of ['left','right']){
+        if(attachedPart(p,side)) continue;            // end already taken
+        const e=ends[side];
+        const d=Math.hypot(topPt.x-e.x, topPt.y-e.y);
+        if(d<bestD){ bestD=d; best={pulley:p,side,end:e}; }
+      }
+    }
+    if(best){ best.pulley.props.attach[best.side]=load.id; snapLoadToEnd(load,best.end); }
+  }
+  // when a ball is dropped over a bucket it fits in, register it as "in" that bucket and settle it inside
+  function tryBallIntoBucket(ball){
+    if(ball.kind!=='ball') return;
+    ball.props.inBucket=null;                    // recompute membership
+    let target=null;
+    for(const b of parts){ if(b.kind!=='bucket')continue;
+      if(ballFitsBucket(ball,b)&&ballOverBucket(ball,b)){ target=b; break; }
+    }
+    if(target){
+      ball.props.inBucket=target.id;
+      // drop the ball to rest just inside the bucket interior (above the floor / on existing balls)
+      const bc=pxPos(target), s=target.props.size, half=s/2, t=BUCKET_WALL, r=ball.props.radius;
+      // stack height: count balls already in this bucket (excluding this one), estimate resting y
+      const others=parts.filter(x=>x.kind==='ball'&&x!==ball&&x.props.inBucket===target.id);
+      const floorY=bc.y+half-t;                  // inner floor (world y)
+      let restY=floorY-r;                        // first ball rests on floor
+      if(others.length){ // stack on top of the highest existing ball that shares a column
+        const highest=Math.min(...others.map(o=>pxPos(o).y));
+        restY=Math.min(restY, highest-2*r+2);    // sit above the highest by a diameter
+      }
+      // keep within interior horizontally
+      let nx=pxPos(ball).x; nx=Math.max(bc.x-half+t+r, Math.min(bc.x+half-t-r, nx));
+      ball.matter.body.setPosition(Vec2(nx/S,restY/S));
+      ball.px=nx; ball.py=restY;
+    }
+  }
+
+  window.addEventListener('mouseup',()=>{ if(drag){const p=drag.p;const c=partCenter(p);
+    const moved=Math.abs(c.x-drag.startX)>1||Math.abs(c.y-drag.startY)>1;
+    if(isAttachable(p)) tryAttachDetach(p);     // snap onto / off a pulley rope end
+    if(p.kind==='ball') tryBallIntoBucket(p);   // drop into a bucket if it fits
+    drag=null; if(selectedId===p.id&&!running)renderSubmenu(); if(moved)pushHistory(); } });
+
+  // ---- run controls ----
+  function snap(){ snapshot=parts.map(p=>{const q=pxPos(p);return {id:p.id,kind:p.kind,props:JSON.parse(JSON.stringify(p.props)),px:q.x,py:q.y};}); }
+  // when simulation starts, connect each fully-loaded pulley with a real PulleyJoint
+  function wirePulleys(){
+    parts.forEach(p=>{ if(p.kind!=='pulley')return;
+      if(p.matter.joint){ try{world.destroyJoint(p.matter.joint);}catch(e){} p.matter.joint=null; }
+      const L=attachedPart(p,'left'), R=attachedPart(p,'right');
+      if(L&&R&&L.matter&&R.matter){
+        const ends=pulleyEnds(p);
+        const gA=Vec2(ends.anchorL.x/S, ends.anchorL.y/S);
+        const gB=Vec2(ends.anchorR.x/S, ends.anchorR.y/S);
+        const aA=L.matter.body.getPosition();
+        const aB=R.matter.body.getPosition();
+        try{ p.matter.joint=world.createJoint(new PulleyJoint({},L.matter.body,R.matter.body,gA,gB,aA,aB,1.0)); }catch(e){}
+      }
+    });
+  }
+  function unwirePulleys(){ parts.forEach(p=>{ if(p.kind==='pulley'&&p.matter.joint){ try{world.destroyJoint(p.matter.joint);}catch(e){} p.matter.joint=null; } }); }
+
+  function play(){ if(running)return; running=true; deselect(); snap(); parts.forEach(p=>setRunningState(p,true)); wirePulleys(); playBtn.innerHTML='&#9208; Pause'; undoBtn.disabled=true; redoBtn.disabled=true; }
+  function pause(){ running=false; unwirePulleys(); parts.forEach(p=>setRunningState(p,false)); playBtn.innerHTML='&#9654; Play'; updateHistoryButtons(); }
+  function reset(){ running=false; unwirePulleys(); playBtn.innerHTML='&#9654; Play'; updateHistoryButtons(); if(!snapshot)return;
+    parts.forEach(destroy); parts=[];
+    snapshot.forEach(s=>{const p={id:s.id,kind:s.kind,props:JSON.parse(JSON.stringify(s.props)),px:s.px,py:s.py};instantiate(p);parts.push(p);});
+    deselect();
+  }
+  playBtn.onclick=()=>running?pause():play();
+  document.getElementById('resetBtn').onclick=reset;
+  document.getElementById('clearBtn').onclick=()=>{parts.forEach(destroy);parts=[];snapshot=null;deselect();running=false;playBtn.innerHTML='&#9654; Play';emptyHint.style.display='block';pushHistory();};
+
+  // ---- illustrated rendering ----
+  function roundRect(x,y,w,h,r,fill){ctx.fillStyle=fill;ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();ctx.fill();}
+  function circle(x,y,r,fill){ctx.fillStyle=fill;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();}
+  function drawWagon(p){
+    const m=p.matter,q=pxPos(p),ang=m.body.getAngle();
+    // chassis body
+    ctx.save();ctx.translate(q.x,q.y);ctx.rotate(ang);
+    roundRect(-m.bedWpx/2,-m.bedHpx/2,m.bedWpx,m.bedHpx,6,'#C0533A');
+    roundRect(-m.bedWpx/2,-m.bedHpx/2,m.bedWpx,6,3,'#d96a4f');
+    ctx.restore();
+    // each wheel at its OWN physics position + rotation (real spin)
+    m.wheels.forEach(wb=>{
+      const wp=wb.getPosition(), wa=wb.getAngle();
+      ctx.save();ctx.translate(wp.x*S,wp.y*S);ctx.rotate(wa);
+      circle(0,0,m.wheelRpx,'#3a3a3a');circle(0,0,m.wheelRpx*0.36,'#9a9a9a');
+      ctx.strokeStyle='#6a6a6a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,-m.wheelRpx*0.8);ctx.stroke();
+      ctx.restore();
+    });
+  }
+  function drawIncline(p){
+    const o=pxPos(p),{width:Wd,height:Ht,flip}=p.props;
+    const A={x:o.x,y:o.y},B={x:o.x+Wd,y:o.y},C=flip?{x:o.x+Wd,y:o.y-Ht}:{x:o.x,y:o.y-Ht};
+    ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.lineTo(C.x,C.y);ctx.closePath();
+    ctx.fillStyle='#C28E4B';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle='#8A5E2E';ctx.lineJoin='round';ctx.stroke();
+  }
+  function drawRod(p){
+    const q=pxPos(p), ang=p.matter.body.getAngle(), L=p.props.length, t=ROD_THICK;
+    ctx.save();ctx.translate(q.x,q.y);ctx.rotate(ang);
+    roundRect(-L/2,-t/2,L,t,t/2,'#9b7a4e');
+    ctx.lineWidth=2;ctx.strokeStyle='#6f5736';
+    ctx.beginPath();
+    const r=t/2; ctx.moveTo(-L/2+r,-t/2);ctx.arcTo(L/2,-t/2,L/2,t/2,r);ctx.arcTo(L/2,t/2,-L/2,t/2,r);ctx.arcTo(-L/2,t/2,-L/2,-t/2,r);ctx.arcTo(-L/2,-t/2,L/2,-t/2,r);ctx.closePath();ctx.stroke();
+    // subtle end caps so it reads as a rod
+    circle(-L/2+r,0,r*0.4,'#b89a6d');circle(L/2-r,0,r*0.4,'#b89a6d');
+    ctx.restore();
+  }
+  function drawPad(p){
+    const q=pxPos(p), ang=p.matter.body.getAngle(), L=PAD_LEN, t=PAD_THICK;
+    ctx.save();ctx.translate(q.x,q.y);ctx.rotate(ang);
+    // springy elastic pad: teal body with a lighter top stripe + chevrons
+    roundRect(-L/2,-t/2,L,t,t/2,'#1f9e8a');
+    roundRect(-L/2,-t/2,L,t*0.42,t*0.21,'#37c2ab');
+    ctx.lineWidth=2;ctx.strokeStyle='#0f6e60';
+    const r=t/2; ctx.beginPath();
+    ctx.moveTo(-L/2+r,-t/2);ctx.arcTo(L/2,-t/2,L/2,t/2,r);ctx.arcTo(L/2,t/2,-L/2,t/2,r);ctx.arcTo(-L/2,t/2,-L/2,-t/2,r);ctx.arcTo(-L/2,-t/2,L/2,-t/2,r);ctx.closePath();ctx.stroke();
+    // upward chevrons to signal "bounce"
+    ctx.strokeStyle='#0f6e60';ctx.lineWidth=2;ctx.globalAlpha=0.6;
+    for(let x=-L/2+18; x<=L/2-18; x+=22){ ctx.beginPath();ctx.moveTo(x-6,2);ctx.lineTo(x,-4);ctx.lineTo(x+6,2);ctx.stroke(); }
+    ctx.globalAlpha=1;
+    ctx.restore();
+  }
+  function drawBall(p){
+    const q=pxPos(p), ang=p.matter.body.getAngle(), R=p.props.radius, v=p.props.variant;
+    const pre=BALL_PRESETS[v]||BALL_PRESETS.football;
+    ctx.save();ctx.translate(q.x,q.y);ctx.rotate(ang);
+    circle(0,0,R,pre.fill);
+    ctx.lineWidth=2;ctx.strokeStyle=pre.stroke;ctx.beginPath();ctx.arc(0,0,R,0,7);ctx.stroke();
+    ctx.strokeStyle=pre.stroke;ctx.lineWidth=Math.max(1.4,R*0.07);
+    if(v==='basketball'){
+      ctx.beginPath();ctx.moveTo(-R,0);ctx.lineTo(R,0);ctx.moveTo(0,-R);ctx.lineTo(0,R);ctx.stroke();
+      ctx.beginPath();ctx.arc(-R*0.55,0,R*1.15,-0.9,0.9);ctx.stroke();
+      ctx.beginPath();ctx.arc(R*0.55,0,R*1.15,Math.PI-0.9,Math.PI+0.9);ctx.stroke();
+    } else if(v==='tennis'){
+      ctx.beginPath();ctx.arc(-R*0.9,0,R*1.0,-0.8,0.8);ctx.stroke();
+      ctx.beginPath();ctx.arc(R*0.9,0,R*1.0,Math.PI-0.8,Math.PI+0.8);ctx.stroke();
+    } else { // football (soccer ball): center pentagon + 5 outer pentagons + seams
+      const drawPent=(cx,cy,rr,rot,fill)=>{
+        ctx.beginPath();
+        for(let i=0;i<5;i++){ const a=rot+i*2*Math.PI/5; const x=cx+Math.cos(a)*rr, y=cy+Math.sin(a)*rr; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+        ctx.closePath();
+        if(fill){ ctx.fillStyle=fill; ctx.fill(); }
+        ctx.stroke();
+      };
+      ctx.lineWidth=Math.max(1,R*0.045); ctx.strokeStyle=pre.stroke; ctx.lineJoin='round';
+      const cPent=R*0.30;                 // central pentagon "radius" (center to vertex)
+      // seams: lines from each central-pentagon vertex outward to the rim
+      for(let i=0;i<5;i++){ const a=-Math.PI/2+i*2*Math.PI/5;
+        const vx=Math.cos(a)*cPent, vy=Math.sin(a)*cPent;
+        ctx.beginPath();ctx.moveTo(vx,vy);ctx.lineTo(Math.cos(a)*R*0.98,Math.sin(a)*R*0.98);ctx.stroke(); }
+      // five outer black pentagons, centered between the seams, near the rim
+      const outR=R*0.70, oPent=R*0.26;
+      for(let i=0;i<5;i++){ const a=-Math.PI/2+Math.PI/5+i*2*Math.PI/5;   // offset half a step
+        const ox=Math.cos(a)*outR, oy=Math.sin(a)*outR;
+        drawPent(ox,oy,oPent,a+Math.PI/5, pre.stroke);   // point one vertex outward
+      }
+      // central black pentagon on top
+      drawPent(0,0,cPent,-Math.PI/2, pre.stroke);
+    }
+    ctx.restore();
+  }
+  function drawWheel(p){
+    const q=pxPos(p), ang=p.matter.body.getAngle(), R=p.props.radius, v=p.props.variant;
+    const pre=WHEEL_PRESETS[v]||WHEEL_PRESETS.cartwheel;
+    ctx.save();ctx.translate(q.x,q.y);ctx.rotate(ang);
+    circle(0,0,R,pre.fill);
+    ctx.lineWidth=Math.max(2,R*0.09);ctx.strokeStyle=pre.stroke;ctx.beginPath();ctx.arc(0,0,R,0,7);ctx.stroke();
+    if(v==='tyre'){
+      // inner hub + tread ticks around the rim
+      circle(0,0,R*0.42,'#4a4a50'); circle(0,0,R*0.16,'#9a9a9a');
+      ctx.strokeStyle=pre.stroke;ctx.lineWidth=Math.max(1.5,R*0.06);
+      for(let i=0;i<16;i++){const a=i*Math.PI/8; ctx.beginPath();ctx.moveTo(Math.cos(a)*R*0.84,Math.sin(a)*R*0.84);ctx.lineTo(Math.cos(a)*R*0.98,Math.sin(a)*R*0.98);ctx.stroke();}
+    } else { // cartwheel: wooden hub + spokes
+      ctx.strokeStyle=pre.stroke;ctx.lineWidth=Math.max(2,R*0.08);
+      for(let i=0;i<8;i++){const a=i*Math.PI/4; ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*R*0.86,Math.sin(a)*R*0.86);ctx.stroke();}
+      circle(0,0,R*0.22,pre.stroke); circle(0,0,R*0.11,'#d8b98c');
+    }
+    ctx.restore();
+  }
+  function drawWeight(p){
+    const q=pxPos(p), ang=p.matter.body.getAngle(), s=p.props.size;
+    ctx.save();ctx.translate(q.x,q.y);ctx.rotate(ang);
+    const half=s/2;
+    const topHalf=half*0.66;          // narrower top
+    const ring=Math.max(4,s*0.16);    // ring handle radius
+    const fill='#5b8fc9', edge='#1a1a1a';
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    // ring handle on top (donut): outer dark, inner cutout
+    ctx.lineWidth=Math.max(2.5,s*0.085); ctx.strokeStyle=edge;
+    ctx.beginPath(); ctx.arc(0,-half-ring*0.9,ring,0,7); ctx.stroke();
+    // trapezoid body (wider at bottom)
+    ctx.beginPath();
+    ctx.moveTo(-topHalf,-half);
+    ctx.lineTo(topHalf,-half);
+    ctx.lineTo(half,half);
+    ctx.lineTo(-half,half);
+    ctx.closePath();
+    ctx.fillStyle=fill; ctx.fill();
+    ctx.lineWidth=Math.max(2.5,s*0.07); ctx.strokeStyle=edge; ctx.stroke();
+    // weight label, e.g. "10kg"
+    const kg=p.props.weight; const label=(Number.isInteger(kg)?kg:kg.toFixed(1))+'kg';
+    ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='bold '+Math.max(8,Math.round(s*0.26))+'px Trebuchet MS, sans-serif';
+    ctx.fillText(label,0,half*0.34);
+    ctx.restore();
+  }
+  function drawBucket(p){
+    const q=pxPos(p), ang=p.matter.body.getAngle(), s=p.props.size;
+    ctx.save();ctx.translate(q.x,q.y);ctx.rotate(ang);
+    const half=s/2, t=BUCKET_WALL;
+    ctx.lineJoin='round';ctx.lineCap='round';
+    const edge='#5a86a8';
+    // translucent body: fill the whole bucket outline faintly, then the interior is see-through
+    // outer walls (U-shape) with a translucent blue-grey, like a plastic pail
+    ctx.beginPath();
+    ctx.moveTo(-half,-half);
+    ctx.lineTo(-half,half);
+    ctx.lineTo(half,half);
+    ctx.lineTo(half,-half);
+    ctx.lineTo(half-t,-half);
+    ctx.lineTo(half-t,half-t);
+    ctx.lineTo(-half+t,half-t);
+    ctx.lineTo(-half+t,-half);
+    ctx.closePath();
+    ctx.fillStyle='rgba(120,170,210,0.35)';ctx.fill();      // translucent walls
+    ctx.lineWidth=2;ctx.strokeStyle=edge;ctx.stroke();
+    // faint translucent tint over the interior cavity to read as a see-through vessel
+    ctx.fillStyle='rgba(150,195,225,0.14)';
+    ctx.fillRect(-half+t,-half,s-2*t,s-t);
+    // glossy vertical highlight streak
+    ctx.fillStyle='rgba(255,255,255,0.18)';
+    ctx.fillRect(-half+t+3,-half+3,Math.max(3,s*0.07),s-t-6);
+    // rim (top edge), slightly brighter
+    ctx.fillStyle='rgba(180,215,240,0.6)';
+    ctx.fillRect(-half,-half,s,4);
+    ctx.strokeStyle=edge;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-half,-half);ctx.lineTo(half,-half);ctx.stroke();
+    // handle (bail): semicircular arc rising above the rim
+    const bailH=s*0.55;
+    ctx.lineWidth=Math.max(2.5,s*0.06); ctx.strokeStyle='#5b5f66';
+    ctx.beginPath();
+    ctx.moveTo(-half+t/2,-half);
+    ctx.quadraticCurveTo(0,-half-bailH, half-t/2,-half);
+    ctx.stroke();
+    // pivot rivets where handle meets rim
+    circle(-half+t/2,-half,2.4,'#3f444b'); circle(half-t/2,-half,2.4,'#3f444b');
+    ctx.restore();
+  }
+  function drawPulley(p){
+    const c=pxPos(p), R=p.props.wheelR, ends=pulleyEnds(p);
+    // rope endpoints: follow attached loads' tops if present, else the default hang points
+    const L=attachedPart(p,'left'), Rt=attachedPart(p,'right');
+    const leftPt = L&&L.matter ? loadAnchorPoint(L) : ends.left;
+    const rightPt= Rt&&Rt.matter ? loadAnchorPoint(Rt) : ends.right;
+    // rope: from left load up over the wheel to right load
+    ctx.lineWidth=3; ctx.strokeStyle='#8a7a5a'; ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(leftPt.x, leftPt.y);
+    ctx.lineTo(ends.anchorL.x, ends.anchorL.y);
+    ctx.arc(c.x, c.y, R, Math.PI, 0, false);   // over the top of the wheel
+    ctx.lineTo(rightPt.x, rightPt.y);
+    ctx.stroke();
+    // hooks at free rope ends (only show when nothing attached)
+    if(!L){ ctx.beginPath(); ctx.arc(ends.left.x, ends.left.y, 4, 0, 7); ctx.strokeStyle='#6f5736'; ctx.lineWidth=2.5; ctx.stroke(); }
+    if(!Rt){ ctx.beginPath(); ctx.arc(ends.right.x, ends.right.y, 4, 0, 7); ctx.strokeStyle='#6f5736'; ctx.lineWidth=2.5; ctx.stroke(); }
+    // the wheel
+    circle(c.x,c.y,R,'#c79a5a');
+    ctx.lineWidth=3; ctx.strokeStyle='#7a5a2e'; ctx.beginPath(); ctx.arc(c.x,c.y,R,0,7); ctx.stroke();
+    circle(c.x,c.y,R*0.55,'#b8895a');
+    circle(c.x,c.y,R*0.18,'#7a5a2e');
+    // mounting bracket above the wheel
+    ctx.strokeStyle='#5b4327'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(c.x,c.y-R); ctx.lineTo(c.x,c.y-R-12); ctx.stroke();
+    circle(c.x,c.y-R-14,4,'#5b4327');
+  }
+  function drawLever(p){
+    const m=p.matter, ap=leverApex(p);
+    // true pivot is apexBelow px above the collision apex; draw the visual triangle tip at the
+    // beam underside so it looks seated, base anchored where the collision body's base sits.
+    const pivY=ap.y-(m.apexBelow||0), pivX=ap.x;
+    const baseY=ap.y+m.wedgeH;
+    const tipY=pivY+m.thick/2;            // just under the beam center line
+    const hw=m.wedgeW/2;
+    ctx.beginPath();ctx.moveTo(pivX,tipY);ctx.lineTo(pivX-hw,baseY);ctx.lineTo(pivX+hw,baseY);ctx.closePath();
+    ctx.fillStyle='#C28E4B';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle='#8A5E2E';ctx.lineJoin='round';ctx.stroke();
+    // beam at its live pose
+    const bp=m.beam.getPosition(), ba=m.beam.getAngle(), L=m.L, t=m.thick;
+    ctx.save();ctx.translate(bp.x*S,bp.y*S);ctx.rotate(ba);
+    roundRect(-L/2,-t/2,L,t,t/2,'#9b7a4e');
+    ctx.lineWidth=2;ctx.strokeStyle='#6f5736';
+    const r=t/2;ctx.beginPath();ctx.moveTo(-L/2+r,-t/2);ctx.arcTo(L/2,-t/2,L/2,t/2,r);ctx.arcTo(L/2,t/2,-L/2,t/2,r);ctx.arcTo(-L/2,t/2,-L/2,-t/2,r);ctx.arcTo(-L/2,-t/2,L/2,-t/2,r);ctx.closePath();ctx.stroke();
+    ctx.restore();
+    // pivot pin at the contact point (beam center line)
+    circle(pivX,pivY,5.5,'#5b4327'); circle(pivX,pivY,2.4,'#d8b98c');
+  }
+  function drawSelection(){const p=parts.find(x=>x.id===selectedId);if(!p||running)return;const c=partCenter(p);
+    ctx.save();ctx.strokeStyle='#1F4E8C';ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.strokeRect(c.x-c.w/2-6,c.y-c.h/2-6,c.w+12,c.h+12);ctx.restore();}
+
+  // stop an attached load from rising up through the pulley wheel (rope can't shorten past the wheel)
+  function clampPulleys(){
+    parts.forEach(p=>{ if(p.kind!=='pulley'||!p.matter.joint)return;
+      const ends=pulleyEnds(p);
+      for(const side of ['left','right']){
+        const load=attachedPart(p,side); if(!load||!load.matter)continue;
+        const anchorY=(side==='left'?ends.anchorL.y:ends.anchorR.y);
+        const minTopY=anchorY+4;                        // load's top can't rise above just under the rim
+        const body=load.matter.body, pos=body.getPosition();
+        const topY=pos.y*S - loadTopOffset(load);
+        if(topY<minTopY){
+          const newCenterY=(minTopY+loadTopOffset(load))/S;
+          body.setPosition(Vec2(pos.x,newCenterY));
+          const v=body.getLinearVelocity();
+          if(v.y<0) body.setLinearVelocity(Vec2(v.x,0));  // kill upward motion
+          body.setAngularVelocity(0);
+        }
+      }
+    });
+  }
+
+  function loop(){
+    if(running){ world.step(1/60, 8, 3); clampPulleys(); }
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#cdbf9f';ctx.fillRect(0,H-3,W,3);
+    parts.forEach(p=>{if(p.kind==='pulley')drawPulley(p);});
+    parts.forEach(p=>{if(p.kind==='incline')drawIncline(p);});
+    parts.forEach(p=>{if(p.kind==='rod')drawRod(p);});
+    parts.forEach(p=>{if(p.kind==='pad')drawPad(p);});
+    parts.forEach(p=>{if(p.kind==='lever')drawLever(p);});
+    parts.forEach(p=>{if(p.kind==='ball')drawBall(p);});
+    parts.forEach(p=>{if(p.kind==='wheel')drawWheel(p);});
+    parts.forEach(p=>{if(p.kind==='weight')drawWeight(p);});
+    parts.forEach(p=>{if(p.kind==='bucket')drawBucket(p);});
+    parts.forEach(p=>{if(p.kind==='wagon')drawWagon(p);});
+    drawSelection();
+    requestAnimationFrame(loop);
+  }
+  buildWorld(); resize(); window.addEventListener('resize',resize);
+  pushHistory();   // seed empty board state so the first edit is undoable
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1734,25 +1734,29 @@
       const o=pxPos(g);
       if(g.kind==='hole'){
         if(g._satisfied) continue;
-        const mouthHalf=g.props.diameter/2;
         for(const it of pressers){
           if(it.kind!=='ball'&&it.kind!=='wheel'&&it.kind!=='wagon') continue;
-          if((it.kind==='ball'||it.kind==='wheel') && 2*it.props.radius > g.props.diameter) continue;  // must fit
-          const bp=pxPos(it);
-          // must have actually DROPPED IN: center within the mouth horizontally AND below the surface
-          const withinMouth=Math.abs(bp.x-o.x) <= mouthHalf*0.85;
-          const belowSurface=bp.y >= o.y + Math.min(10, HOLE_DEPTH*0.25);
-          if(withinMouth&&belowSurface){ g._satisfied=true; break; }
+          // A hole is satisfied ONLY when an object is genuinely inside its pit — the exact same
+          // strict test used for the visual masking. This is true only after the object actually
+          // falls in (fully within the mouth horizontally AND below the surface). A ball resting
+          // beside, near, or rolling past the hole is never "in the pit", so it can't win.
+          if(objectInPit(it, g)){ g._satisfied=true; break; }
         }
       } else if(g.kind==='button'){
         const s=g.props.size, baseY=g.matter.baseY;
-        const capTopUp=baseY - BUTTON_CAP_H/2;            // cap top when fully up
+        // Track the cap's LIVE top surface (it lowers as the cap is pressed); the body is the cap,
+        // a box of height BUTTON_CAP_H centred at the body, so its top is bodyY - BUTTON_CAP_H/2.
+        const capCenterY=g.matter.body.getPosition().y*S;
+        const capTopLive=capCenterY - BUTTON_CAP_H/2;
         let pressed=false;
         for(const it of pressers){
           const f=presserFootprint(it);
           const overX=Math.abs(f.cx - g.matter.body.getPosition().x*S) <= s/2;
-          // object is resting on the cap if its bottom is near the cap's current top (within travel range)
-          const onTop=(f.bottomY >= capTopUp-3) && (f.bottomY <= capTopUp+BUTTON_CAP_H+BUTTON_TRAVEL+4);
+          // GENUINE contact only: the object's bottom must be resting ON the cap's live top within
+          // a tight tolerance. A wide band here lets an object passing NEAR the button win while
+          // still in the air (and, because winning pauses the sim, freezes it there) — the old
+          // false-win bug. Keep this band small.
+          const onTop=(f.bottomY >= capTopLive-2) && (f.bottomY <= capTopLive+4);
           if(overX&&onTop){ pressed=true; break; }
         }
         const target = pressed ? BUTTON_TRAVEL : 0;
